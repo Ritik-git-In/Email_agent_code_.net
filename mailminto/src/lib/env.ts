@@ -8,6 +8,9 @@ export const env = {
   groqApiKey: process.env.GROQ_API_KEY ?? "",
   encryptionKey: process.env.ENCRYPTION_KEY ?? "",
   appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+  telegramBotToken: process.env.TELEGRAM_BOT_TOKEN ?? "",
+  telegramBotUsername: process.env.TELEGRAM_BOT_USERNAME ?? "",
+  telegramWebhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET ?? "",
 };
 
 export function assertServerEnv() {

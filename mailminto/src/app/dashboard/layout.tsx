@@ -48,9 +48,6 @@ export default async function DashboardLayout({
           <NavLink href="/dashboard/labels" icon={<Tag className="h-4 w-4" />}>
             Labels
           </NavLink>
-          <NavLink href="/dashboard/rules" icon={<Tag className="h-4 w-4" />}>
-            Rules
-          </NavLink>
           <NavLink href="/dashboard/integrations" icon={<Plug className="h-4 w-4" />}>
             Integrations
           </NavLink>

@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { Plug, Mail, Tag, ArrowRight } from "lucide-react";
+import { Mail, Send, ArrowRight, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/supabase/user";
 import { ProcessNowButton } from "./ProcessNowButton";
+import { FirstRunProcessor } from "./FirstRunProcessor";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,10 @@ const CATEGORY_LABELS: Record<string, { name: string; tone: string }> = {
   internal: { name: "Internal", tone: "bg-green-500/10 text-green-600 dark:text-green-400" },
 };
 
-export default async function DashboardOverview() {
+export default async function DashboardOverview(props: {
+  searchParams: Promise<{ first_run?: string; connected?: string }>;
+}) {
+  const searchParams = await props.searchParams;
   const user = await getCurrentUser();
   const supabase = await createClient();
   if (!user) return null;
@@ -26,13 +30,11 @@ export default async function DashboardOverview() {
 
   const [
     { count: gmailCount },
-    { count: keyCount },
     { count: telegramCount },
     { count: processedTotal },
     { data: recent },
   ] = await Promise.all([
     supabase.from("gmail_accounts").select("*", { count: "exact", head: true }).eq("user_id", user.id),
-    supabase.from("api_keys").select("*", { count: "exact", head: true }).eq("user_id", user.id),
     supabase.from("telegram_configs").select("*", { count: "exact", head: true }).eq("user_id", user.id),
     supabase.from("emails_processed").select("*", { count: "exact", head: true }).eq("user_id", user.id),
     supabase
@@ -43,7 +45,12 @@ export default async function DashboardOverview() {
       .limit(5),
   ]);
 
-  const ready = (gmailCount ?? 0) > 0 && (keyCount ?? 0) > 0;
+  const gmailConnected = (gmailCount ?? 0) > 0;
+  const telegramConnected = (telegramCount ?? 0) > 0;
+
+  if (!gmailConnected) {
+    return <OnboardingWizard greeting={greeting} telegramConnected={telegramConnected} />;
+  }
 
   return (
     <div className="px-8 py-10 max-w-5xl">
@@ -51,58 +58,47 @@ export default async function DashboardOverview() {
         Hey {greeting} 👋
       </h1>
       <p className="mt-2 text-zinc-600 dark:text-zinc-400">
-        Welcome to MailMinto. {ready ? "Click below to process your unread emails." : "Let's get your inbox automated."}
+        Welcome back. Process your unread emails or check what&apos;s landed in your inbox.
       </p>
 
-      <div className="mt-8 grid gap-4 md:grid-cols-4">
+      <div className="mt-8 grid gap-4 md:grid-cols-3">
         <Stat label="Gmail accounts" value={gmailCount ?? 0} />
-        <Stat label="LLM keys" value={keyCount ?? 0} />
-        <Stat label="Telegram" value={(telegramCount ?? 0) > 0 ? "On" : "Off"} />
+        <Stat label="Telegram alerts" value={telegramConnected ? "On" : "Off"} />
         <Stat label="Processed total" value={processedTotal ?? 0} />
       </div>
 
-      {ready ? (
+      {!telegramConnected && (
+        <div className="mt-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-blue-50 dark:bg-blue-950/30 p-5 flex items-center justify-between gap-4">
+          <div>
+            <div className="font-medium text-sm">Get instant alerts on Telegram</div>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              One tap — no bot setup. We&apos;ll ping you when high-priority emails arrive.
+            </p>
+          </div>
+          <a
+            href="/api/telegram/link"
+            className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-[#229ED9] text-white px-4 py-2 text-sm font-medium hover:opacity-90"
+          >
+            <Send className="h-4 w-4" />
+            Connect Telegram
+          </a>
+        </div>
+      )}
+
+      {searchParams.first_run === "1" ? (
+        <div className="mt-8">
+          <FirstRunProcessor connectedEmail={searchParams.connected} />
+        </div>
+      ) : (
         <div className="mt-10">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
             Run pipeline
           </h2>
           <div className="mt-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6">
             <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
-              Fetches up to 25 unread emails, classifies them, applies labels, and creates drafts for High Priority + Customer Support.
+              Fetches your unread emails (up to your daily limit), classifies them, applies labels, and drafts replies for High Priority + Customer Support.
             </p>
             <ProcessNowButton />
-          </div>
-        </div>
-      ) : (
-        <div className="mt-10">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-            Setup checklist
-          </h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-3">
-            <SetupCard
-              step={1}
-              title="Connect Gmail"
-              desc="Authorize MailMinto to read and label your inbox."
-              href="/dashboard/integrations"
-              icon={<Mail className="h-5 w-5" />}
-              done={(gmailCount ?? 0) > 0}
-            />
-            <SetupCard
-              step={2}
-              title="Add an LLM key"
-              desc="Bring your own Groq, OpenAI, or Anthropic key."
-              href="/dashboard/integrations"
-              icon={<Plug className="h-5 w-5" />}
-              done={(keyCount ?? 0) > 0}
-            />
-            <SetupCard
-              step={3}
-              title="Tune your rules"
-              desc="Customize the prompts behind each of the 5 categories."
-              href="/dashboard/rules"
-              icon={<Tag className="h-5 w-5" />}
-              done={false}
-            />
           </div>
         </div>
       )}
@@ -144,46 +140,132 @@ export default async function DashboardOverview() {
   );
 }
 
+function OnboardingWizard({
+  greeting,
+  telegramConnected,
+}: {
+  greeting: string;
+  telegramConnected: boolean;
+}) {
+  return (
+    <div className="px-8 py-16 max-w-3xl mx-auto">
+      <div className="text-center">
+        <h1 className="text-4xl font-bold tracking-tight">
+          Welcome, {greeting} 👋
+        </h1>
+        <p className="mt-3 text-lg text-zinc-600 dark:text-zinc-400">
+          Get your inbox automated in 2 quick steps.
+        </p>
+      </div>
+
+      <div className="mt-12 space-y-4">
+        <WizardStep
+          number={1}
+          title="Connect Gmail"
+          desc="Authorize MailMinto to read, label, and draft replies. We never store email content — just metadata."
+          actionLabel="Connect Gmail"
+          actionHref="/api/gmail/connect"
+          icon={<Mail className="h-6 w-6" />}
+          done={false}
+          primary
+        />
+
+        <WizardStep
+          number={2}
+          title="Get alerts on Telegram"
+          desc="One-tap connect. We'll ping you instantly when a high-priority email lands."
+          actionLabel={telegramConnected ? "Connected" : "Connect Telegram"}
+          actionHref={telegramConnected ? undefined : "/api/telegram/link"}
+          icon={<Send className="h-6 w-6" />}
+          done={telegramConnected}
+          optional
+        />
+      </div>
+
+      <p className="mt-10 text-center text-sm text-zinc-500">
+        Step 2 is optional — you can do it later from the dashboard.
+      </p>
+    </div>
+  );
+}
+
+function WizardStep({
+  number,
+  title,
+  desc,
+  actionLabel,
+  actionHref,
+  icon,
+  done,
+  primary,
+  optional,
+}: {
+  number: number;
+  title: string;
+  desc: string;
+  actionLabel: string;
+  actionHref?: string;
+  icon: React.ReactNode;
+  done: boolean;
+  primary?: boolean;
+  optional?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-2xl border p-6 flex items-start gap-5 ${
+        done
+          ? "border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-950/30"
+          : primary
+            ? "border-zinc-900 dark:border-zinc-100 bg-white dark:bg-zinc-900"
+            : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"
+      }`}
+    >
+      <div
+        className={`shrink-0 inline-flex h-12 w-12 items-center justify-center rounded-xl ${
+          done
+            ? "bg-green-500/10 text-green-600 dark:text-green-400"
+            : "bg-zinc-100 dark:bg-zinc-800"
+        }`}
+      >
+        {done ? <CheckCircle2 className="h-6 w-6" /> : icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono text-zinc-400">STEP {number}</span>
+          {optional && (
+            <span className="text-xs uppercase tracking-wide text-zinc-400">Optional</span>
+          )}
+        </div>
+        <h3 className="mt-1 text-lg font-semibold">{title}</h3>
+        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{desc}</p>
+      </div>
+      {actionHref && !done && (
+        <a
+          href={actionHref}
+          className={`shrink-0 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${
+            primary
+              ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:opacity-90"
+              : "bg-[#229ED9] text-white hover:opacity-90"
+          }`}
+        >
+          {actionLabel}
+          <ArrowRight className="h-4 w-4" />
+        </a>
+      )}
+      {done && (
+        <span className="shrink-0 text-sm font-medium text-green-600 dark:text-green-400">
+          ✓ Done
+        </span>
+      )}
+    </div>
+  );
+}
+
 function Stat({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3">
       <div className="text-xs text-zinc-500">{label}</div>
       <div className="mt-1 text-2xl font-semibold">{value}</div>
     </div>
-  );
-}
-
-function SetupCard({
-  step,
-  title,
-  desc,
-  href,
-  icon,
-  done,
-}: {
-  step: number;
-  title: string;
-  desc: string;
-  href: string;
-  icon: React.ReactNode;
-  done: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors"
-    >
-      <div className="flex items-start justify-between">
-        <div className={`inline-flex h-10 w-10 items-center justify-center rounded-lg ${done ? "bg-green-500/10 text-green-600 dark:text-green-400" : "bg-zinc-100 dark:bg-zinc-800"}`}>
-          {icon}
-        </div>
-        <span className="text-xs font-mono text-zinc-400">{done ? "✓ Done" : `Step ${step}`}</span>
-      </div>
-      <h3 className="mt-4 font-semibold">{title}</h3>
-      <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{desc}</p>
-      <div className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-zinc-700 dark:text-zinc-300 group-hover:gap-2 transition-all">
-        Configure <ArrowRight className="h-3.5 w-3.5" />
-      </div>
-    </Link>
   );
 }

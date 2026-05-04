@@ -1,14 +1,17 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
 
-let cached: ReturnType<typeof createClient> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cached: SupabaseClient<any, "public", any> | null = null;
 
-export function createAdminClient() {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function createAdminClient(): SupabaseClient<any, "public", any> {
   if (!env.supabaseServiceRoleKey) {
     throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
   }
   if (!cached) {
-    cached = createClient(env.supabaseUrl, env.supabaseServiceRoleKey, {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    cached = createClient<any, "public", any>(env.supabaseUrl, env.supabaseServiceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
   }

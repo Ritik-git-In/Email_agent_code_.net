@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/crypto";
+import { env } from "@/lib/env";
 import {
   gmailFromRefreshToken,
   listUnreadIds,
@@ -39,11 +40,22 @@ export async function processUserEmails(): Promise<ProcessSummary[]> {
   return processForUserId(user.id, supabase);
 }
 
+const PLAN_DAILY_LIMITS: Record<string, number> = {
+  free: 50,
+  pro: Infinity,
+  agency: Infinity,
+};
+
 export async function processForUserId(
   userId: string,
   supabase: SupabaseClient,
 ): Promise<ProcessSummary[]> {
-  const [{ data: gmailAccounts }, { data: apiKeys }, { data: telegram }] = await Promise.all([
+  const [
+    { data: gmailAccounts },
+    { data: apiKeys },
+    { data: telegram },
+    { data: profile },
+  ] = await Promise.all([
     supabase.from("gmail_accounts").select("id, email, refresh_token_encrypted").eq("user_id", userId),
     supabase.from("api_keys").select("provider, key_encrypted").eq("user_id", userId),
     supabase
@@ -51,22 +63,45 @@ export async function processForUserId(
       .select("bot_token_encrypted, chat_id")
       .eq("user_id", userId)
       .maybeSingle(),
+    supabase.from("profiles").select("plan").eq("id", userId).maybeSingle(),
   ]);
 
   if (!gmailAccounts || gmailAccounts.length === 0) {
     throw new Error("No Gmail account connected. Connect one in Integrations.");
   }
-  const llmKey =
+  const userLlmKey =
     apiKeys?.find((k) => k.provider === "groq") ??
     apiKeys?.find((k) => k.provider === "openai");
-  if (!llmKey) {
-    throw new Error("No LLM API key configured. Add one in Integrations.");
+  const llmApiKey = userLlmKey ? decrypt(userLlmKey.key_encrypted) : env.groqApiKey;
+  if (!llmApiKey) {
+    throw new Error(
+      "LLM unavailable. Server has no GROQ_API_KEY configured and user has no key set.",
+    );
   }
-  const llmApiKey = decrypt(llmKey.key_encrypted);
 
-  const telegramBotToken = telegram?.bot_token_encrypted
-    ? decrypt(telegram.bot_token_encrypted)
-    : null;
+  const plan = profile?.plan ?? "free";
+  const dailyLimit = PLAN_DAILY_LIMITS[plan] ?? PLAN_DAILY_LIMITS.free;
+  const todayStart = new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
+  const { count: processedToday } = await supabase
+    .from("emails_processed")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("processed_at", todayStart.toISOString());
+  const alreadyToday = processedToday ?? 0;
+  const remainingToday = dailyLimit - alreadyToday;
+  if (remainingToday <= 0) {
+    throw new Error(
+      `Daily limit reached (${dailyLimit} emails/day on ${plan} plan). Upgrade to Pro for unlimited.`,
+    );
+  }
+  const batchSize = Math.min(25, remainingToday);
+
+  const telegramBotToken = env.telegramBotToken
+    ? env.telegramBotToken
+    : telegram?.bot_token_encrypted
+      ? decrypt(telegram.bot_token_encrypted)
+      : null;
   const telegramChatId = telegram?.chat_id ?? null;
 
   const summaries: ProcessSummary[] = [];
@@ -88,7 +123,7 @@ export async function processForUserId(
 
       const labelIds = await ensureAllCategoryLabels(gmail);
 
-      const messageIds = await listUnreadIds(gmail, 25);
+      const messageIds = await listUnreadIds(gmail, batchSize);
       summary.fetched = messageIds.length;
 
       const { data: alreadyProcessed } = await supabase

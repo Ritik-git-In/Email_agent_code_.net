@@ -62,8 +62,9 @@ export async function GET(request: NextRequest) {
 
     if (dbError) return redirectWithError(request, dbError.message);
 
-    const success = new URL(DASHBOARD, request.url);
+    const success = new URL("/dashboard", request.url);
     success.searchParams.set("connected", profile.email);
+    success.searchParams.set("first_run", "1");
     const response = NextResponse.redirect(success);
     response.cookies.delete("gmail_oauth_state");
     return response;

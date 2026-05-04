@@ -1,9 +1,7 @@
 import Link from "next/link";
-import { Mail, Plug, Send, CheckCircle2, AlertCircle } from "lucide-react";
+import { Mail, Send, CheckCircle2, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/supabase/user";
-import { decrypt, maskKey } from "@/lib/crypto";
-import { ApiKeyForm } from "./ApiKeyForm";
 import { TelegramForm } from "./TelegramForm";
 import { GmailList } from "./GmailList";
 
@@ -17,25 +15,14 @@ export default async function IntegrationsPage(props: {
   const supabase = await createClient();
   if (!user) return null;
 
-  const [{ data: gmailAccounts }, { data: apiKeys }, { data: telegramConfig }] =
-    await Promise.all([
-      supabase.from("gmail_accounts").select("id, email").eq("user_id", user.id),
-      supabase.from("api_keys").select("provider, key_encrypted").eq("user_id", user.id),
-      supabase
-        .from("telegram_configs")
-        .select("chat_id")
-        .eq("user_id", user.id)
-        .maybeSingle(),
-    ]);
-
-  const maskedKeys =
-    apiKeys?.map((k) => {
-      try {
-        return { provider: k.provider, masked: maskKey(decrypt(k.key_encrypted)) };
-      } catch {
-        return { provider: k.provider, masked: "••••" };
-      }
-    }) ?? [];
+  const [{ data: gmailAccounts }, { data: telegramConfig }] = await Promise.all([
+    supabase.from("gmail_accounts").select("id, email").eq("user_id", user.id),
+    supabase
+      .from("telegram_configs")
+      .select("chat_id")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+  ]);
 
   return (
     <div className="px-8 py-10 max-w-4xl">
@@ -76,14 +63,6 @@ export default async function IntegrationsPage(props: {
           ) : (
             <p className="text-sm text-zinc-500">No Gmail account connected yet.</p>
           )}
-        </Card>
-
-        <Card
-          icon={<Plug className="h-5 w-5" />}
-          title="LLM API key"
-          desc="Bring your own OpenAI or Groq key. Used for classification and reply drafting."
-        >
-          <ApiKeyForm existing={maskedKeys} />
         </Card>
 
         <Card
