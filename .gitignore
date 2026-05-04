@@ -1,0 +1,10 @@
+# Claude Code local config
+.claude/
+
+# Node / Next safety net (nested mailminto/.gitignore also covers these)
+node_modules/
+.next/
+.env
+.env.local
+.env.*.local
+*.tsbuildinfo

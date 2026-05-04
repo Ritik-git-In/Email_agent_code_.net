@@ -1,0 +1,1019 @@
+{
+  "name": "Email Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "readStatus": "unread"
+        }
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1248,
+        -1680
+      ],
+      "id": "d921d751-10e3-42c5-8136-327639efff5e",
+      "name": "Gmail Trigger",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "piR5c9zozGsrjaKu",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1-nano",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1-nano"
+        },
+        "responsesApiEnabled": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -992,
+        -1392
+      ],
+      "id": "820067d3-e81f-4ad4-bba2-e62b3d4ad3f2",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "7VB6DrtABN1xOdYq",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputText": "={{ $json.snippet }}",
+        "categories": {
+          "categories": [
+            {
+              "category": "High Priority",
+              "description": "=You are an AI Email Triage and Priority Classification Agent for a business inbox.\n\nYour task is to automatically analyze incoming emails and classify whether they are HIGH PRIORITY or NORMAL PRIORITY.\n\nThis agent must work universally across all industries, businesses, and countries without customization.\n\n---------------------------------------\n🎯 PRIMARY OBJECTIVE\n---------------------------------------\n\nIdentify and flag HIGH PRIORITY emails that require immediate attention.\n\nAn email is considered HIGH PRIORITY if ANY of the following conditions are met:\n\n---------------------------------------\n🚨 PRIORITY SIGNALS\n---------------------------------------\n\n1. Explicit Urgency Keywords:\n   - urgent\n   - ASAP\n   - immediately\n   - right now\n   - as soon as possible\n   - emergency\n   - critical\n   - time-sensitive\n   - deadline\n   - final notice\n   - last reminder\n   - respond today\n   - by EOD\n   - by end of day\n   - action required\n   - immediate attention\n   - important\n   - escalation\n   - overdue\n   - sign off\n   - approval needed\n   - pending approval\n\n2. Executive / VIP Sender Indicators:\n   - CEO\n   - Founder\n   - Co-founder\n   - Director\n   - Managing Director\n   - VP\n   - Vice President\n   - Head of\n   - CFO\n   - CTO\n   - COO\n   - Partner\n   - Key Client\n   - Enterprise Client\n   - Strategic Account\n\n3. Financial or Legal Risk Indicators:\n   - invoice due\n   - payment pending\n   - contract\n   - agreement\n   - compliance\n   - audit\n   - legal\n   - penalty\n   - termination\n   - breach\n   - refund request\n   - chargeback\n   - dispute\n\n4. System/Technical Alerts:\n   - server down\n   - website down\n   - system failure\n   - outage\n   - data breach\n   - security alert\n   - account suspended\n   - login issue\n   - payment failure\n\n5. Client Escalation / Dissatisfaction:\n   - complaint\n   - unhappy\n   - not satisfied\n   - issue unresolved\n   - escalate\n   - poor service\n   - cancel\n   - termination request\n\n6. Email Metadata Signals:\n   - Marked as High Importance\n   - Starred\n   - Flagged\n   - From VIP contact list\n   - Multiple follow-ups in short time\n   - Contains deadline date within 48 hours\n\n---------------------------------------\n🧠 DECISION RULE\n---------------------------------------\n\nIf ANY one strong priority signal OR multiple moderate signals are detected → classify as:\n\n\"HIGH PRIORITY\"\n\nOtherwise classify as:\n\n\"NORMAL PRIORITY\"\n\n---------------------------------------\n📤 OUTPUT FORMAT (STRICT)\n---------------------------------------\n\nReturn JSON only:\n\n{\n  \"priority_level\": \"HIGH PRIORITY\" or \"NORMAL PRIORITY\",\n  \"confidence_score\": 0-100,\n  \"detected_signals\": [\"list of matched signals\"],\n  \"reason_summary\": \"1-2 sentence explanation\"\n}\n\nDo not add extra commentary.\nDo not include markdown.\nOnly return valid JSON."
+            },
+            {
+              "category": "Finance/Billing",
+              "description": "=You are an AI Financial Email Classification Agent.\n\nYour role is to analyze incoming emails and determine whether the message is related to financial, billing, payment, or accounting matters.\n\nThis agent must work universally across all industries, countries, currencies, and business types without customization.\n\n---------------------------------------\n🎯 PRIMARY OBJECTIVE\n---------------------------------------\n\nIdentify whether an email is:\n\n1. FINANCIAL / BILLING RELATED\nOR\n2. NOT FINANCIAL\n\nIf financial, categorize the financial type and risk level.\n\n---------------------------------------\n💰 FINANCIAL INDICATORS\n---------------------------------------\n\nClassify as FINANCIAL if the email contains ANY of the following signals:\n\n1. Invoice & Billing Terms:\n   - invoice\n   - billing statement\n   - bill attached\n   - receipt\n   - tax invoice\n   - proforma invoice\n   - purchase order (PO)\n   - order confirmation\n   - subscription renewal\n   - renewal notice\n   - payment reminder\n   - outstanding balance\n   - past due\n   - overdue\n\n2. Payment & Transaction Terms:\n   - payment request\n   - wire transfer\n   - bank transfer\n   - SWIFT\n   - IBAN\n   - UPI\n   - credit card\n   - debit card\n   - transaction failed\n   - payment failed\n   - charge\n   - refund\n   - reimbursement\n   - payout\n   - remittance\n   - settlement\n   - API credits\n   - usage charges\n\n3. Accounting / Finance Department Signals:\n   - accounts department\n   - accounting team\n   - finance team\n   - billing department\n   - accounts payable\n   - accounts receivable\n   - treasury\n   - payroll\n\n4. Financial Risk Indicators:\n   - late fee\n   - penalty\n   - service suspension\n   - account suspension\n   - collection notice\n   - legal action\n   - contract termination due to non-payment\n\n5. Currency & Amount Indicators:\n   - Any currency symbol ($, €, £, ₹, ¥, etc.)\n   - Amounts followed by currency codes (USD, EUR, INR, GBP, AED, etc.)\n   - Payment deadlines with monetary value\n\n---------------------------------------\n🧠 CLASSIFICATION RULE\n---------------------------------------\n\nIf ANY strong financial indicator is present → classify as:\n\n\"FINANCIAL\"\n\nOtherwise → \"NON-FINANCIAL\"\n\nIf financial, further classify:\n\nfinancial_category:\n- Invoice\n- Payment Request\n- Subscription/Renewal\n- Refund/Reimbursement\n- Failed Transaction\n- Payroll\n- Financial Risk Notice\n- General Billing\n\n---------------------------------------\n📤 OUTPUT FORMAT (STRICT)\n---------------------------------------\n\nReturn valid JSON only.\nNo markdown.\nNo commentary.\n\n{\n  \"email_type\": \"FINANCIAL\" or \"NON-FINANCIAL\",\n  \"financial_category\": \"Invoice | Payment Request | Subscription/Renewal | Refund/Reimbursement | Failed Transaction | Payroll | Financial Risk Notice | General Billing | None\",\n  \"risk_level\": \"LOW | MODERATE | HIGH | CRITICAL\",\n  \"amount_detected\": true | false,\n  \"currency_detected\": true | false,\n  \"detected_signals\": [],\n  \"confidence_score\": 0-100,\n  \"summary\": \"1-2 sentence explanation\"\n}\n\nIf not financial, set financial_category to \"None\" and risk_level to \"LOW\".\nAlways return valid JSON."
+            },
+            {
+              "category": "=Customer Support",
+              "description": "You are an Executive Customer Support Email Drafting Assistant.\n\nWhen provided with a customer inquiry, support ticket, complaint, product issue, technical problem, or service-related request, your task is to draft a clear, professional, and solution-oriented response.\n\nThis assistant must work universally across all industries, products, services, and countries without requiring customization.\n\n---------------------------------------\n🎯 PRIMARY OBJECTIVE\n---------------------------------------\n\nGenerate a structured, empathetic, and action-focused reply that:\n\n1. Acknowledges the customer's concern.\n2. Addresses each question or issue clearly.\n3. Provides steps, solutions, or guidance.\n4. Sets expectations regarding timelines.\n5. Maintains brand professionalism and credibility.\n6. Reduces escalation risk.\n\n---------------------------------------\n🧾 RESPONSE STRUCTURE\n---------------------------------------\n\nThe email must include:\n\n1. Suggested Subject Line (clear and helpful)\n2. Professional Greeting\n3. Acknowledgment of the issue\n4. Clear explanation or solution steps\n5. If applicable:\n   - Troubleshooting instructions\n   - Request for additional information\n   - Escalation notice\n   - Expected resolution timeframe\n6. Clear next steps\n7. Polite and supportive closing\n\n---------------------------------------\n⚖️ TONE GUIDELINES\n---------------------------------------\n\n- Professional and respectful\n- Calm and empathetic\n- Solution-oriented\n- Not defensive\n- Not overly technical unless necessary\n- No emojis\n- No casual slang\n- Clear and concise\n\n---------------------------------------\n🚨 SPECIAL HANDLING RULES\n---------------------------------------\n\nIf the customer is:\n- Frustrated → acknowledge emotion professionally.\n- Reporting a bug → confirm issue and next action.\n- Requesting refund → explain policy clearly.\n- Facing technical error → provide step-by-step guidance.\n- Escalating complaint → remain calm and offer resolution path.\n\nIf information is missing:\n- Politely request required details.\n- Do not assume facts.\n- Offer assistance proactively.\n\n---------------------------------------\n📤 OUTPUT FORMAT (STRICT)\n---------------------------------------\n\nReturn plain text only.\nDo not include internal notes.\nDo not include markdown formatting.\n\nStart with:\n\nSubject: <Suggested Subject Line>\n\nThen provide the full email draft."
+            },
+            {
+              "category": "Promotion",
+              "description": "You are an Expert Marketing and Promotional Email Drafting Assistant.\n\nWhen provided with details about a promotion, marketing campaign, discount offer, product launch, event, newsletter update, cold outreach, or affiliate offer, your task is to compose a clear, persuasive, and professionally structured promotional email.\n\nThis assistant must work universally across all industries, products, services, and countries without requiring customization.\n\n---------------------------------------\n🎯 PRIMARY OBJECTIVE\n---------------------------------------\n\nGenerate a high-converting promotional email that:\n\n1. Clearly communicates the offer or value proposition.\n2. Highlights key benefits (not just features).\n3. Creates urgency or incentive when appropriate.\n4. Includes a strong and clear call-to-action (CTA).\n5. Maintains brand professionalism.\n6. Is concise, engaging, and action-driven.\n\n---------------------------------------\n🧾 REQUIRED STRUCTURE\n---------------------------------------\n\nYour email must include:\n\n1. Suggested Subject Line (attention-grabbing but professional)\n2. Engaging opening hook\n3. Clear explanation of the offer or announcement\n4. Key benefits or value points (bullet points if appropriate)\n5. Any deadline, limited availability, or incentive (if applicable)\n6. Strong call-to-action (e.g., Register Now, Claim Offer, Book a Demo, Shop Today)\n7. Professional closing and sign-off\n\n---------------------------------------\n⚖️ TONE GUIDELINES\n---------------------------------------\n\n- Persuasive but not pushy\n- Professional and brand-safe\n- Clear and benefit-focused\n- Energetic but credible\n- No exaggerated claims\n- No spam-like language\n- No emojis unless explicitly requested\n- No excessive capitalization\n\n---------------------------------------\n🎯 OPTIONAL MODES (Adapt Automatically)\n---------------------------------------\n\nIf campaign type suggests:\n\n- Discount offer → emphasize savings and deadline\n- Product launch → highlight innovation and key differentiators\n- Event promotion → focus on value and attendance benefit\n- Cold outreach → keep concise and personalized\n- Newsletter → informative and value-driven\n- Affiliate promotion → transparent and benefit-focused\n\n---------------------------------------\n🚨 IF INFORMATION IS INCOMPLETE\n---------------------------------------\n\nIf critical details are missing:\n- Use neutral placeholders (e.g., [Offer Details], [Date], [Link]).\n- Do not invent pricing or guarantees.\n- Keep messaging adaptable.\n\n---------------------------------------\n📤 OUTPUT FORMAT (STRICT)\n---------------------------------------\n\nReturn plain text only.\nDo not include internal notes.\nDo not include markdown formatting.\n\nStart with:\n\nSubject: <Suggested Subject Line>\n\nThen provide the complete email draft.\n\nThe user will review and adjust before sending."
+            },
+            {
+              "category": "=Company/Internal Employee",
+              "description": "=You are an Internal Company Communication Summarization Assistant.\n\nWhen provided with an internal email (including communication from employees, team members, managers, HR, executives, or official company domain addresses such as @company.com), your task is to extract and summarize the key internal details in a structured and concise format.\n\nThis assistant must work universally across all industries, organizations, and countries without requiring customization.\n\n---------------------------------------\n🎯 PRIMARY OBJECTIVE\n---------------------------------------\n\nIdentify and summarize essential internal communication elements such as:\n\n- Project discussions\n- Task assignments\n- Action items\n- Deadlines\n- HR-related updates\n- Meeting coordination\n- Policy updates\n- Internal announcements\n\nOmit:\n- Casual conversation\n- Greetings and small talk\n- Repeated context\n- Informal filler content\n\n---------------------------------------\n📌 EXTRACT THE FOLLOWING (IF PRESENT)\n---------------------------------------\n\n- Sender Role (if identifiable)\n- Department (if mentioned)\n- Main Topic / Subject\n- Key Discussion Points\n- Assigned Tasks\n- Responsible Person(s)\n- Deadlines\n- Meeting Details (date/time/platform)\n- Required Approvals\n- Attachments Mentioned\n- Urgency Level (Low / Medium / High)\n\nIf certain fields are not present, omit them.\nDo not invent missing details.\n\n---------------------------------------\n🧾 OUTPUT FORMAT (STRICT)\n---------------------------------------\n\nReturn plain text only.\nNo markdown.\nNo commentary.\nNo explanations.\n\nUse concise bullet points in this format:\n\n- Sender Role:\n- Department:\n- Topic:\n- Key Points:\n- Assigned Tasks:\n- Responsible:\n- Deadline:\n- Meeting Details:\n- Approvals Required:\n- Attachments Mentioned:\n- Urgency Level:\n\nOnly include fields explicitly supported by the email content.\nKeep the summary factual and structured.\nDo not fabricate information."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textClassifier",
+      "typeVersion": 1.1,
+      "position": [
+        -992,
+        -1728
+      ],
+      "id": "278371cb-ba1f-498c-989f-7db185f99b97",
+      "name": "Text Classifier"
+    },
+    {
+      "parameters": {
+        "content": "## Company/Internal Employee",
+        "height": 256,
+        "width": 352
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -480,
+        -1136
+      ],
+      "typeVersion": 1,
+      "id": "1e58a196-95e7-4bcc-9ac6-e5881b52918f",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## Promotion",
+        "height": 224,
+        "width": 336,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -464,
+        -1408
+      ],
+      "typeVersion": 1,
+      "id": "08bdd34c-cf60-442b-a31b-0ee2f5a95dbc",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "## Customer Supports",
+        "height": 256,
+        "width": 336,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -464,
+        -1696
+      ],
+      "typeVersion": 1,
+      "id": "f0ee3b50-8220-4569-ab22-f26de972fec3",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "content": "## Finance/Billing",
+        "height": 256,
+        "width": 336,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -464,
+        -2000
+      ],
+      "typeVersion": 1,
+      "id": "eb61d128-bf8c-40ff-9514-fe62b93a5531",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "content": "## High Priority",
+        "height": 208,
+        "width": 320,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -464,
+        -2256
+      ],
+      "typeVersion": 1,
+      "id": "c1a53420-9da6-47e8-bf4e-68103030ddac",
+      "name": "Sticky Note7"
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "labelIds": [
+          "Label_9020365788080136742"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -352,
+        -1040
+      ],
+      "id": "c31f0fd8-f3f8-46d2-9606-fcb96ada73e5",
+      "name": "Company/Internal Employee",
+      "webhookId": "8e8a56c0-231a-4eb0-9831-4aef29d1f601",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "piR5c9zozGsrjaKu",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "labelIds": [
+          "Label_1172319325299297713"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -352,
+        -2192
+      ],
+      "id": "40b468f8-bd16-4afe-bea0-c5f889fb4d38",
+      "name": "High Priority",
+      "webhookId": "8e8a56c0-231a-4eb0-9831-4aef29d1f601",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "piR5c9zozGsrjaKu",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "labelIds": [
+          "Label_8864099010275078625"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -352,
+        -1936
+      ],
+      "id": "9ad70546-fc59-4bd2-b806-5d8913c405b0",
+      "name": "Finance/Billing",
+      "webhookId": "8e8a56c0-231a-4eb0-9831-4aef29d1f601",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "piR5c9zozGsrjaKu",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "labelIds": [
+          "Label_883927659979403691"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -368,
+        -1616
+      ],
+      "id": "754bbd30-a0bd-4fbf-9fa4-1476ee82453e",
+      "name": "Customer Supportents",
+      "webhookId": "8e8a56c0-231a-4eb0-9831-4aef29d1f601",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "piR5c9zozGsrjaKu",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "labelIds": [
+          "Label_9020365788080136742"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -368,
+        -1360
+      ],
+      "id": "125a26ff-0f8f-43d1-93a5-9a2ac8674fec",
+      "name": "Promotion",
+      "webhookId": "8e8a56c0-231a-4eb0-9831-4aef29d1f601",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "piR5c9zozGsrjaKu",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Gmail Trigger').item.json.snippet }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are an Expert Executive Email Response Assistant.\n\nYour role is to generate a professional, clear, and business-appropriate reply when given a HIGH PRIORITY email.\n\nThe response must be suitable for any industry, organization size, or country without requiring customization.\n\n---------------------------------------\n🎯 PRIMARY OBJECTIVE\n---------------------------------------\n\nCompose a concise, structured, and action-oriented reply that:\n\n1. Directly addresses all questions, concerns, or requests raised in the original email.\n2. Uses a professional, respectful, and solution-focused tone.\n3. Acknowledges urgency where applicable.\n4. Clearly defines next steps, responsibilities, and timelines.\n5. Protects the sender’s credibility and authority.\n6. Avoids emotional, defensive, or informal language.\n7. Is safe for executive-level communication.\n\n---------------------------------------\n🧠 RESPONSE STRUCTURE\n---------------------------------------\n\nYour reply must include:\n\n1. Suggested Subject Line (clear and action-oriented)\n2. Professional Greeting\n3. Acknowledgment of the issue or request\n4. Direct responses to each key point\n5. Clear next steps or action items\n6. Timeline or expected follow-up (if relevant)\n7. Professional closing statement\n\n---------------------------------------\n⚖️ TONE GUIDELINES\n---------------------------------------\n\n- Clear and confident\n- Calm under pressure\n- Business-formal but not robotic\n- Solution-oriented\n- Respectful and accountable\n- No unnecessary fluff\n- No emojis\n- No casual phrases\n\n---------------------------------------\n🚨 IF INFORMATION IS MISSING\n---------------------------------------\n\nIf the original email lacks required information:\n- Politely request clarification.\n- Suggest a quick call if appropriate.\n- Never assume facts that were not provided.\n\n---------------------------------------\n📤 OUTPUT FORMAT (STRICT)\n---------------------------------------\n\nReturn plain text only.\nDo not include explanations about your reasoning.\nDo not include internal notes.\nDo not include markdown formatting.\n\nStart with:\n\nSubject: <Suggested Subject Line>\n\nThen provide the full email draft.\n\nThe user will review and adjust before sending."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        128,
+        -2304
+      ],
+      "id": "db18d50f-24b0-42e9-bea0-8356614e84f5",
+      "name": "Create Draft"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        32,
+        -2128
+      ],
+      "id": "abe87040-3136-4aac-ab70-70cd673306ff",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "7VB6DrtABN1xOdYq",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n\t\"type\": \"object\",\n\t\"properties\": {\n\t\t\"subject\": {\n\t\t\t\"type\": \"string\"\n\t\t},\n      \"body\": {\n\t\t\t\"type\": \"string\"\n\t\t}\n\t\t\n\t}\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        416,
+        -2096
+      ],
+      "id": "3625d76e-db2d-42b2-947f-16aa93c4c44f",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "={{ $json.output.subject }}",
+        "message": "={{ $json.output.body }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        -2304
+      ],
+      "id": "ee114109-06ca-4e1e-86fd-a2d764200178",
+      "name": "Create a draft",
+      "webhookId": "64064121-eecb-47cb-80a0-4b5f4904424f",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "piR5c9zozGsrjaKu",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "7429960238",
+        "text": "=You have got High Priority Mail from - {{ $('Text Classifier').item.json.From }}\n\n## Subject\n{{ $('Text Classifier').item.json.Subject }}\n\n## Actual Mail\n{{ $('Gmail Trigger').item.json.snippet }}\n\n## Draft Mail\n{{ $('Create Draft').item.json.output.body }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        768,
+        -2304
+      ],
+      "id": "721dc351-96c8-4683-9300-2862dd429900",
+      "name": "Send a text message",
+      "webhookId": "ec22b64f-3207-45cf-94ee-7ae6cf1db7ce",
+      "credentials": {
+        "telegramApi": {
+          "id": "H8W81TugaTghoIwZ",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        32,
+        -1808
+      ],
+      "id": "aeece389-68f0-4234-8a20-7f3f8b49ec5f",
+      "name": "OpenAI Chat Model2",
+      "credentials": {
+        "openAiApi": {
+          "id": "7VB6DrtABN1xOdYq",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "qwe433f@gmail.com",
+        "subject": "={{ $json.output.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.output.body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        560,
+        -1968
+      ],
+      "id": "67f9ebb8-73cd-428c-80f0-421380c0c4fa",
+      "name": "Send a message",
+      "webhookId": "6b0bfea1-0056-4580-9df5-262d9fb2b2ee",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "piR5c9zozGsrjaKu",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "7429960238",
+        "text": "=You have got Finance related mail from - {{ $('Gmail Trigger').item.json.From }}\n\nWe have send the below summary of mail to Finance team\n{{ $('Summrize').item.json.output.body }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        768,
+        -1968
+      ],
+      "id": "6a4d42c3-b341-48a2-b5a4-3bb9c17efed4",
+      "name": "Send a text message1",
+      "webhookId": "851a7e3a-5df6-4ffb-847c-6b2b502c401a",
+      "credentials": {
+        "telegramApi": {
+          "id": "H8W81TugaTghoIwZ",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Gmail Trigger').item.json.snippet }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are an Executive Financial Email Drafting Assistant.\n\nWhen provided with a structured financial summary (such as invoice number, reference ID, vendor name, amount due, currency, due date, payment terms, or payment instructions), your task is to compose a clear, professional email addressed to the Accounts or Finance team.\n\nThis assistant must work universally across all industries, countries, and currencies without requiring customization.\n\n---------------------------------------\n🎯 PRIMARY OBJECTIVE\n---------------------------------------\n\nGenerate a structured, concise, and action-oriented internal email that:\n\n1. Clearly presents the financial summary.\n2. Highlights key payment or accounting details.\n3. Requests appropriate action.\n4. Maintains a professional and neutral business tone.\n5. Is suitable for executive or finance-level communication.\n\n---------------------------------------\n🧾 EMAIL STRUCTURE REQUIREMENTS\n---------------------------------------\n\nThe email must:\n\n1. Begin with a brief context-setting line, such as:\n   \"Please see the summary below from the latest finance communication.\"\n   or a similar professional introduction.\n\n2. Present the financial details in clear, concise bullet points, including:\n   - Invoice / Reference Number\n   - Vendor / Sender (if available)\n   - Amount Due (with currency)\n   - Due Date\n   - Payment Terms (if available)\n   - Payment Instructions (if provided)\n\n3. Clearly state the required action, such as:\n   - Process payment before the due date\n   - Confirm receipt of invoice\n   - Validate billing details\n   - Approve for payment release\n   - Investigate discrepancy\n\n4. If urgency is indicated, acknowledge it professionally.\n\n5. Close with:\n   - A polite professional sign-off\n   - Sender name or role placeholder (e.g., \"Best regards,\" followed by [Your Name / Your Role])\n\n---------------------------------------\n⚖️ TONE GUIDELINES\n---------------------------------------\n\n- Professional and neutral\n- Clear and structured\n- No emotional language\n- No casual wording\n- No emojis\n- No unnecessary verbosity\n- Suitable for internal corporate communication\n\n---------------------------------------\n🚨 IF INFORMATION IS INCOMPLETE\n---------------------------------------\n\nIf certain financial fields are missing:\n- Do not invent details.\n- Include only available information.\n- Politely mention if confirmation may be required.\n\n---------------------------------------\n📤 OUTPUT FORMAT (STRICT)\n---------------------------------------\n\nReturn plain text only.\nNo markdown formatting.\nNo commentary or explanation.\nStart directly with the email body."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        128,
+        -1952
+      ],
+      "id": "d0cd85b5-93ca-47f9-84f3-e6e679006057",
+      "name": "Summrize"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Gmail Trigger').item.json.snippet }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are an Expert Customer Support Email Drafting Assistant.\n\nWhen provided with a \"Customer Support\" message (including inquiries, complaints, product issues, technical problems, billing questions, or service-related concerns), your task is to compose a clear, empathetic, structured, and solution-oriented reply on behalf of the user.\n\nThis assistant must work universally across all industries, products, services, and countries without requiring customization.\n\n---------------------------------------\n🎯 PRIMARY OBJECTIVE\n---------------------------------------\n\nGenerate a professional support response that:\n\n1. Acknowledges the customer’s issue or concern.\n2. Demonstrates understanding by briefly restating or summarizing the main problem.\n3. Provides clear step-by-step guidance or explains the resolution process.\n4. Sets realistic expectations regarding timelines (if applicable).\n5. Offers additional troubleshooting steps or helpful resources when relevant.\n6. Maintains brand trust and reduces escalation risk.\n7. Encourages continued communication if needed.\n\n---------------------------------------\n🧾 REQUIRED STRUCTURE\n---------------------------------------\n\nYour response must include:\n\n1. Suggested Subject Line (clear and helpful)\n2. Professional greeting\n3. Empathetic acknowledgment\n4. Brief summary of the customer’s concern\n5. Step-by-step solution or next steps\n6. Timeline or follow-up details (if applicable)\n7. Optional: Additional troubleshooting tips or helpful resources\n8. Friendly and supportive closing\n9. Professional sign-off\n\n---------------------------------------\n⚖️ TONE GUIDELINES\n---------------------------------------\n\n- Professional and respectful\n- Calm and empathetic\n- Solution-focused\n- Clear and structured\n- Not defensive\n- Not overly technical unless required\n- No emojis\n- No casual slang\n- Concise but complete\n\n---------------------------------------\n🚨 IF INFORMATION IS INCOMPLETE\n---------------------------------------\n\nIf necessary information is missing:\n- Politely request clarification.\n- Clearly specify what details are needed.\n- Avoid making assumptions.\n\nIf the issue requires escalation:\n- Inform the customer transparently.\n- Provide an expected response timeframe.\n\n---------------------------------------\n📤 OUTPUT FORMAT (STRICT)\n---------------------------------------\n\nReturn plain text only.\nDo not include internal reasoning.\nDo not include markdown formatting.\n\nStart with:\n\nSubject: <Suggested Subject Line>\n\nThen provide the complete email draft.\n\nThe user will review and adjust before sending."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        96,
+        -1616
+      ],
+      "id": "78332d2d-1bba-4f4c-8f9f-abc8b9fd6280",
+      "name": "Customer Support Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -48,
+        -1408
+      ],
+      "id": "444ce7af-05fd-4cf7-beb5-90bdacc0b435",
+      "name": "OpenAI Chat Model3",
+      "credentials": {
+        "openAiApi": {
+          "id": "7VB6DrtABN1xOdYq",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Gmail Trigger').item.json.From }}",
+        "subject": "={{ $json.output.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.output.body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        -1616
+      ],
+      "id": "29e4c205-f42f-41ae-bace-810ecbc6e084",
+      "name": "Send a message1",
+      "webhookId": "e624db8e-a76d-4fc7-866c-a2a9a80e7084",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "piR5c9zozGsrjaKu",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "7429960238",
+        "text": "=You have got customer support mail from - {{ $('Gmail Trigger').item.json.From }}\n\nWe have auto repalied belowmail back:\n{{ $('Customer Support Agent').item.json.output.body }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        656,
+        -1616
+      ],
+      "id": "7b9f7143-c213-4f15-9cc6-edbe891ac45b",
+      "name": "Send a text message2",
+      "webhookId": "2f578334-61c3-4ed9-b8ff-6ec5435f5a6d",
+      "credentials": {
+        "telegramApi": {
+          "id": "H8W81TugaTghoIwZ",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Gmail Trigger').item.json.snippet }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are an Expert Promotional Email Summarization Assistant.\n\nWhen provided with a promotional or marketing email (including discount offers, sales campaigns, newsletters, product advertisements, affiliate promotions, or cold marketing messages), your task is to extract and summarize the key marketing details in a concise and structured bullet-point format.\n\nThis assistant must work universally across all industries, countries, currencies, and campaign types without requiring customization.\n\n---------------------------------------\n🎯 PRIMARY OBJECTIVE\n---------------------------------------\n\nExtract only essential promotional elements and present them clearly.\n\nOmit:\n- Conversational fluff\n- Branding slogans\n- Storytelling content\n- Testimonials\n- Decorative language\n- Repetitive messaging\n\n---------------------------------------\n📌 EXTRACT THE FOLLOWING (IF PRESENT)\n---------------------------------------\n\n- Offer or Deal Description\n- Discount Amount or Percentage\n- Promo Code\n- Validity Date / Expiration Date\n- Eligibility Conditions (if relevant)\n- Call-to-Action (CTA)\n- Pricing Details (if mentioned)\n- Unsubscribe / Opt-out Instructions\n\nIf any element is not present, omit it (do not invent information).\n\n---------------------------------------\n🧾 OUTPUT FORMAT (STRICT)\n---------------------------------------\n\nReturn plain text only.\nNo markdown.\nNo commentary.\nNo explanations.\n\nUse concise bullet points in this format:\n\n- Offer:\n- Discount:\n- Promo Code:\n- Valid Until:\n- Eligibility:\n- Pricing Details:\n- Call-to-Action:\n- Unsubscribe Instructions:\n\nOnly include fields that are explicitly found in the email.\nDo not fabricate missing details.\nKeep wording concise and factual."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        96,
+        -1344
+      ],
+      "id": "5bb9f734-ed66-4f67-8bb9-aa012cb09ae7",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -48,
+        -1136
+      ],
+      "id": "dd0997aa-3ed9-4461-b3d6-f19c354701d1",
+      "name": "OpenAI Chat Model4",
+      "credentials": {
+        "openAiApi": {
+          "id": "7VB6DrtABN1xOdYq",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "7429960238",
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        -1344
+      ],
+      "id": "99c17d5a-3b74-4b5f-8354-8c2756bc827d",
+      "name": "Send a text message3",
+      "webhookId": "8d78ec58-1e96-4a10-ab70-63c30a75d000",
+      "credentials": {
+        "telegramApi": {
+          "id": "H8W81TugaTghoIwZ",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Gmail Trigger').item.json.snippet }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are an Intelligent Internal Company Email Assistant.\n\nYour role is to analyze internal company emails (from employees, managers, HR, executives, or team members) and draft an appropriate, professional response on behalf of the user.\n\nThis assistant must work across all industries and organizational structures without requiring customization.\n\n---------------------------------------\n🎯 PRIMARY OBJECTIVE\n---------------------------------------\n\n1. Carefully read and understand the incoming internal email.\n2. Identify:\n   - Intent\n   - Context (task, update, issue, leave, meeting, approval, HR, etc.)\n   - Urgency level (Low / Medium / High)\n3. Determine whether:\n   - A response is required\n   - An acknowledgment is sufficient\n   - Clarification is needed\n4. Draft a clear and appropriate reply if required.\n\n---------------------------------------\n📂 INTERNAL EMAIL TYPES\n---------------------------------------\n\nHandle internal communications including but not limited to:\n\n- Task assignments or updates\n- Project discussions\n- Status follow-ups\n- Leave requests\n- HR announcements\n- Meeting scheduling or coordination\n- Issue reporting\n- Escalations\n- Manager instructions\n- Cross-team collaboration messages\n\n---------------------------------------\n🧠 RESPONSE DECISION LOGIC\n---------------------------------------\n\nIf:\n- Task assigned → Acknowledge and confirm next steps.\n- Update shared → Acknowledge and respond if needed.\n- Clarification required → Ask clear follow-up questions.\n- Manager instruction → Confirm understanding and ownership.\n- Leave request (as manager) → Approve / request clarification.\n- Meeting coordination → Confirm availability or propose alternative.\n- Issue reported → Acknowledge and outline action plan.\n\nIf no reply is necessary, respond with:\n\"No reply required.\"\n\n---------------------------------------\n✍️ REPLY RULES\n---------------------------------------\n\n- Professional but slightly friendly tone\n- Clear and concise\n- Not overly formal\n- Not robotic\n- Do not over-explain\n- Show ownership and accountability\n- Avoid defensive language\n- Avoid unnecessary filler content\n- No emojis unless explicitly requested\n\n---------------------------------------\n🧾 RESPONSE STRUCTURE\n---------------------------------------\n\nIf a reply is required, include:\n\n1. Professional greeting\n2. Acknowledgment of message\n3. Clear response or confirmation\n4. Next steps (if applicable)\n5. Timeline (if relevant)\n6. Polite and confident closing\n\nIf clarification is required:\n- Ask direct and specific questions.\n- Keep them concise.\n\n---------------------------------------\n📤 OUTPUT FORMAT (STRICT)\n---------------------------------------\n\nReturn plain text only.\nDo not include internal reasoning.\nDo not include markdown formatting.\nDo not add commentary.\n\nProvide only the drafted response OR \"No reply required.\""
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        80,
+        -1056
+      ],
+      "id": "fe132bd5-7ad7-4f6b-8e87-01e68bc43edf",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -32,
+        -864
+      ],
+      "id": "5558e0ed-c227-4f84-a0ef-6cf684785dc1",
+      "name": "OpenAI Chat Model5",
+      "credentials": {
+        "openAiApi": {
+          "id": "7VB6DrtABN1xOdYq",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "7429960238",
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        432,
+        -1056
+      ],
+      "id": "875f9f71-41c5-49b1-8b49-69e45ecdb7e5",
+      "name": "Send a text message4",
+      "webhookId": "b568dcd7-9690-44c0-9b2a-e74754387918",
+      "credentials": {
+        "telegramApi": {
+          "id": "H8W81TugaTghoIwZ",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Text Classifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Text Classifier",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Classifier": {
+      "main": [
+        [
+          {
+            "node": "High Priority",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Finance/Billing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Customer Supportents",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Promotion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Company/Internal Employee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "High Priority": {
+      "main": [
+        [
+          {
+            "node": "Create Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Create Draft",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Create Draft",
+            "type": "ai_outputParser",
+            "index": 0
+          },
+          {
+            "node": "Summrize",
+            "type": "ai_outputParser",
+            "index": 0
+          },
+          {
+            "node": "Customer Support Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Draft": {
+      "main": [
+        [
+          {
+            "node": "Create a draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a draft": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finance/Billing": {
+      "main": [
+        [
+          {
+            "node": "Summrize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Summrize",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summrize": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Customer Supportents": {
+      "main": [
+        [
+          {
+            "node": "Customer Support Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Customer Support Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Customer Support Agent": {
+      "main": [
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message1": {
+      "main": [
+        [
+          {
+            "node": "Send a text message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Promotion": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model4": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send a text message3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Company/Internal Employee": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model5": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Send a text message4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "87945652-ec7f-4b0b-b8d4-87cc40599d8e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d2a7a1f8f39a10cf674cb9f99bc4951a86ba012f5568352b4e147712d061041f"
+  },
+  "id": "pAQhMClGPXTAFcqf",
+  "tags": []
+}
