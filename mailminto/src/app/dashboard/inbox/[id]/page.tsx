@@ -3,7 +3,7 @@ import { ArrowLeft, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/supabase/user";
 import { decrypt } from "@/lib/crypto";
-import { gmailFromRefreshToken, getMessage } from "@/lib/gmail/client";
+import { gmailFromRefreshToken, getMessage, markThreadAsRead } from "@/lib/gmail/client";
 import { getUserOAuthCreds } from "@/lib/gmail/creds";
 import { ReplyForm } from "./ReplyForm";
 import { HtmlEmailBody } from "./HtmlEmailBody";
@@ -110,6 +110,13 @@ export default async function EmailDetailPage(props: {
     to = msg.to;
     receivedAt = msg.receivedAt;
     threadId = msg.threadId;
+
+    // Silently mark the entire THREAD as read in Gmail (matches Gmail UI:
+    // opening one row clears the blue highlight for the whole conversation,
+    // not just the most-recent message). Idempotent — no-op if already read.
+    markThreadAsRead(gmail, msg.threadId).catch(() => {
+      // best-effort; failures shouldn't block rendering the email
+    });
   } catch (err) {
     error = err instanceof Error ? err.message : "Failed to load email";
   }
@@ -174,7 +181,11 @@ export default async function EmailDetailPage(props: {
               accountId={account.id}
               messageId={id}
               threadId={threadId}
-              to={extractEmailAddress(from)}
+              to={
+                extractEmailAddress(from).toLowerCase() === account.email.toLowerCase()
+                  ? extractEmailAddress(to)
+                  : extractEmailAddress(from)
+              }
               subject={subject}
             />
           </div>

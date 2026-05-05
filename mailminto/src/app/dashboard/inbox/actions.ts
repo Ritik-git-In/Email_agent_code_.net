@@ -5,8 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/crypto";
 import {
   gmailFromRefreshToken,
-  listInboxPage,
-  getMessageMetadata,
+  listInboxThreadsPage,
+  getThreadLatestMetadata,
   getMessageHeader,
   sendMessage,
   type GmailMessageMeta,
@@ -45,12 +45,12 @@ export async function fetchInboxPageAction(
   try {
     const oauthCreds = await getUserOAuthCreds(user.id, supabase);
     const gmail = gmailFromRefreshToken(decrypt(data.refresh_token_encrypted), oauthCreds);
-    const page = await listInboxPage(gmail, {
+    const page = await listInboxThreadsPage(gmail, {
       maxResults: 50,
       pageToken: pageToken ?? undefined,
     });
     const messages = await Promise.all(
-      page.ids.map((id) => getMessageMetadata(gmail, id).catch(() => null)),
+      page.threadIds.map((tid) => getThreadLatestMetadata(gmail, tid).catch(() => null)),
     );
     return {
       ok: true,

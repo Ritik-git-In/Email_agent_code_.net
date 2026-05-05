@@ -49,6 +49,7 @@ export async function listInboxIds(
 export type InboxPage = {
   ids: string[];
   nextPageToken: string | null;
+  resultSizeEstimate: number;
 };
 
 export async function listInboxPage(
@@ -64,21 +65,128 @@ export async function listInboxPage(
   return {
     ids: (res.data.messages ?? []).map((m) => m.id!).filter(Boolean),
     nextPageToken: res.data.nextPageToken ?? null,
+    resultSizeEstimate: res.data.resultSizeEstimate ?? 0,
+  };
+}
+
+// Thread-based listing — matches Gmail UI's count (it groups by conversation).
+export type ThreadListPage = {
+  threadIds: string[];
+  nextPageToken: string | null;
+  resultSizeEstimate: number;
+};
+
+export async function listInboxThreadsPage(
+  gmail: gmail_v1.Gmail,
+  opts: { maxResults?: number; pageToken?: string } = {},
+): Promise<ThreadListPage> {
+  // Match Gmail UI's default "Primary" tab — exclude Social, Promotions,
+  // Updates, Forums. This is what users expect to see in their inbox.
+  const res = await gmail.users.threads.list({
+    userId: "me",
+    q: "in:inbox -in:trash category:primary",
+    maxResults: opts.maxResults ?? 50,
+    pageToken: opts.pageToken,
+  });
+  return {
+    threadIds: (res.data.threads ?? []).map((t) => t.id!).filter(Boolean),
+    nextPageToken: res.data.nextPageToken ?? null,
+    resultSizeEstimate: res.data.resultSizeEstimate ?? 0,
+  };
+}
+
+// Exact thread count for a given Gmail query. Paginates through all threads
+// (up to a safety cap of 20 pages × 500 = 10,000 threads). This matches what
+// Gmail's UI shows in the "of N" indicator — neither resultSizeEstimate (per-
+// page guess, unreliable) nor a single label's threadsTotal (doesn't account
+// for category filters) gives the exact figure.
+export async function countThreads(
+  gmail: gmail_v1.Gmail,
+  query: string,
+): Promise<number> {
+  let total = 0;
+  let pageToken: string | null = null;
+  for (let i = 0; i < 20; i++) {
+    const params: gmail_v1.Params$Resource$Users$Threads$List = {
+      userId: "me",
+      q: query,
+      maxResults: 500,
+    };
+    if (pageToken) params.pageToken = pageToken;
+    const res = await gmail.users.threads.list(params);
+    total += (res.data.threads ?? []).length;
+    const next = res.data.nextPageToken;
+    if (!next) break;
+    pageToken = next;
+  }
+  return total;
+}
+
+// Returns the LATEST message of a thread as a GmailMessageMeta. The whole
+// thread's read state (any message unread → thread is unread) matches Gmail UI.
+export async function getThreadLatestMetadata(
+  gmail: gmail_v1.Gmail,
+  threadId: string,
+): Promise<GmailMessageMeta | null> {
+  try {
+    const res = await gmail.users.threads.get({
+      userId: "me",
+      id: threadId,
+      format: "metadata",
+      metadataHeaders: ["Subject", "From", "To", "Date"],
+    });
+    const messages = res.data.messages ?? [];
+    if (messages.length === 0) return null;
+    const last = messages[messages.length - 1];
+    const headers = last.payload?.headers;
+    const anyUnread = messages.some((m) => (m.labelIds ?? []).includes("UNREAD"));
+    return {
+      id: last.id!,
+      threadId: res.data.id!,
+      subject: header(headers, "Subject"),
+      from: header(headers, "From"),
+      to: header(headers, "To"),
+      snippet: last.snippet ?? "",
+      date: new Date(Number(last.internalDate ?? Date.now())),
+      labelIds: last.labelIds ?? [],
+      isUnread: anyUnread,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function listSentPage(
+  gmail: gmail_v1.Gmail,
+  opts: { maxResults?: number; pageToken?: string } = {},
+): Promise<InboxPage> {
+  const res = await gmail.users.messages.list({
+    userId: "me",
+    q: "in:sent -in:trash",
+    maxResults: opts.maxResults ?? 50,
+    pageToken: opts.pageToken,
+  });
+  return {
+    ids: (res.data.messages ?? []).map((m) => m.id!).filter(Boolean),
+    nextPageToken: res.data.nextPageToken ?? null,
+    resultSizeEstimate: res.data.resultSizeEstimate ?? 0,
   };
 }
 
 export async function getLabelTotals(
   gmail: gmail_v1.Gmail,
   labelId: string,
-): Promise<{ total: number; unread: number }> {
+): Promise<{ total: number; unread: number; threadsTotal: number; threadsUnread: number }> {
   try {
     const res = await gmail.users.labels.get({ userId: "me", id: labelId });
     return {
       total: res.data.messagesTotal ?? 0,
       unread: res.data.messagesUnread ?? 0,
+      threadsTotal: res.data.threadsTotal ?? 0,
+      threadsUnread: res.data.threadsUnread ?? 0,
     };
   } catch {
-    return { total: 0, unread: 0 };
+    return { total: 0, unread: 0, threadsTotal: 0, threadsUnread: 0 };
   }
 }
 
@@ -210,6 +318,31 @@ export async function addLabel(
     userId: "me",
     id: messageId,
     requestBody: { addLabelIds: [labelId] },
+  });
+}
+
+export async function markMessageAsRead(
+  gmail: gmail_v1.Gmail,
+  messageId: string,
+): Promise<void> {
+  await gmail.users.messages.modify({
+    userId: "me",
+    id: messageId,
+    requestBody: { removeLabelIds: ["UNREAD"] },
+  });
+}
+
+// Mark every message in a thread as read. Gmail's UI works at the thread
+// level — opening one message in an inbox row clears the unread highlight
+// for the whole conversation, so we mirror that behavior.
+export async function markThreadAsRead(
+  gmail: gmail_v1.Gmail,
+  threadId: string,
+): Promise<void> {
+  await gmail.users.threads.modify({
+    userId: "me",
+    id: threadId,
+    requestBody: { removeLabelIds: ["UNREAD"] },
   });
 }
 

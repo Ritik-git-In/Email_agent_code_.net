@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useTransition, useEffect, useRef } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
-import { Loader2, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Sparkles } from "lucide-react";
 import { fetchInboxPageAction } from "./actions";
 import type { GmailMessageMeta } from "@/lib/gmail/client";
+
+const PAGE_SIZE = 50;
 
 const CATEGORY_LABELS: Record<string, { name: string; tone: string }> = {
   high_priority: { name: "High Priority", tone: "bg-red-500/10 text-red-600 dark:text-red-400" },
@@ -46,46 +48,92 @@ export function InboxList({
   classifiedMap: Record<string, string>;
 }) {
   const [messages, setMessages] = useState<SerializedMessage[]>(initialMessages);
-  const [pageToken, setPageToken] = useState<string | null>(initialNextPageToken);
+  // pageStartTokens[i] is the pageToken used to fetch page index i.
+  // Page 0 (first page) starts with no token (null).
+  const [pageStartTokens, setPageStartTokens] = useState<(string | null)[]>([null]);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [nextPageToken, setNextPageToken] = useState<string | null>(initialNextPageToken);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-  function loadMore() {
-    if (!pageToken || pending) return;
+  const startIndex = currentPage * PAGE_SIZE + 1;
+  const endIndex = currentPage * PAGE_SIZE + messages.length;
+
+  function gotoNext() {
+    if (!nextPageToken || pending) return;
     setError(null);
     startTransition(async () => {
-      const res = await fetchInboxPageAction(accountId, pageToken);
+      const res = await fetchInboxPageAction(accountId, nextPageToken);
       if (!res.ok) {
         setError(res.error);
         return;
       }
-      setMessages((prev) => [
-        ...prev,
-        ...res.messages.map((m) => ({ ...m, date: m.date.toISOString() })),
-      ]);
-      setPageToken(res.nextPageToken);
+      const newPageIndex = currentPage + 1;
+      setPageStartTokens((prev) => {
+        if (newPageIndex < prev.length) return prev;
+        return [...prev, nextPageToken];
+      });
+      setCurrentPage(newPageIndex);
+      setMessages(res.messages.map((m) => ({ ...m, date: m.date.toISOString() })));
+      setNextPageToken(res.nextPageToken);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     });
   }
 
-  // Auto-load on scroll near bottom
-  useEffect(() => {
-    if (!sentinelRef.current || !pageToken) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) loadMore();
-      },
-      { rootMargin: "200px" },
-    );
-    observer.observe(sentinelRef.current);
-    return () => observer.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageToken, pending]);
+  function gotoPrev() {
+    if (currentPage === 0 || pending) return;
+    setError(null);
+    const prevIndex = currentPage - 1;
+    const prevToken = pageStartTokens[prevIndex];
+    startTransition(async () => {
+      const res = await fetchInboxPageAction(accountId, prevToken);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setCurrentPage(prevIndex);
+      setMessages(res.messages.map((m) => ({ ...m, date: m.date.toISOString() })));
+      setNextPageToken(res.nextPageToken);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
 
   return (
     <div>
-      <div className="text-sm text-zinc-500 mb-3">
-        Showing {messages.length} of {total.toLocaleString()} emails
+      {/* Pagination header — Gmail style */}
+      <div className="flex items-center justify-end gap-3 mb-3 text-sm text-zinc-500">
+        <span>
+          {messages.length === 0
+            ? "0"
+            : `${startIndex.toLocaleString()}–${endIndex.toLocaleString()}`}{" "}
+          of {total.toLocaleString()}
+        </span>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={gotoPrev}
+            disabled={currentPage === 0 || pending}
+            className="p-1.5 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed"
+            aria-label="Previous page"
+          >
+            {pending && currentPage > 0 ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
+          </button>
+          <button
+            onClick={gotoNext}
+            disabled={!nextPageToken || pending}
+            className="p-1.5 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed"
+            aria-label="Next page"
+          >
+            {pending && nextPageToken ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+          </button>
+        </div>
       </div>
 
       {messages.length === 0 ? (
@@ -139,27 +187,6 @@ export function InboxList({
               </Link>
             );
           })}
-        </div>
-      )}
-
-      <div ref={sentinelRef} className="h-1" />
-
-      {pageToken && (
-        <div className="mt-4 flex items-center justify-center">
-          <button
-            onClick={loadMore}
-            disabled={pending}
-            className="inline-flex items-center gap-2 rounded-full border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50"
-          >
-            {pending && <Loader2 className="h-4 w-4 animate-spin" />}
-            {pending ? "Loading…" : "Load more"}
-          </button>
-        </div>
-      )}
-
-      {!pageToken && messages.length > 0 && (
-        <div className="mt-4 text-center text-xs text-zinc-500">
-          End of inbox · {messages.length} loaded
         </div>
       )}
 

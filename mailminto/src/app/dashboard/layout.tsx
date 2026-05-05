@@ -12,6 +12,7 @@ import {
   Calendar,
   Sparkles,
   Pencil,
+  Send,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/supabase/user";
@@ -49,6 +50,9 @@ export default async function DashboardLayout({
           </NavLink>
           <NavLink href="/dashboard/inbox" icon={<Inbox className="h-4 w-4" />}>
             Inbox
+          </NavLink>
+          <NavLink href="/dashboard/sent" icon={<Send className="h-4 w-4" />}>
+            Sent
           </NavLink>
           <NavLink href="/dashboard/drafts" icon={<FileText className="h-4 w-4" />}>
             Drafts
