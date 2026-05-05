@@ -11,6 +11,7 @@ import {
   FileText,
   Calendar,
   Sparkles,
+  Pencil,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/supabase/user";
@@ -31,6 +32,15 @@ export default async function DashboardLayout({
           <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
             <Mail className="h-5 w-5" />
             MailMinto
+          </Link>
+        </div>
+        <div className="px-3 pt-4">
+          <Link
+            href="/dashboard/compose"
+            className="flex items-center gap-2 rounded-2xl bg-blue-100 dark:bg-blue-950 hover:bg-blue-200 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium px-4 py-3 text-sm shadow-sm"
+          >
+            <Pencil className="h-4 w-4" />
+            Compose
           </Link>
         </div>
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1 text-sm">

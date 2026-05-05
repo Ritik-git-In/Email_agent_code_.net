@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect, useRef } from "react";
+import Link from "next/link";
 import { Loader2, Sparkles } from "lucide-react";
 import { fetchInboxPageAction } from "./actions";
 import type { GmailMessageMeta } from "@/lib/gmail/client";
@@ -97,9 +98,10 @@ export function InboxList({
             const category = classifiedMap[msg.id];
             const cat = category ? CATEGORY_LABELS[category] : null;
             return (
-              <div
+              <Link
                 key={msg.id}
-                className={`flex items-start gap-4 px-5 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors ${
+                href={`/dashboard/inbox/${msg.id}?account=${accountId}`}
+                className={`flex items-start gap-4 px-5 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer ${
                   msg.isUnread ? "bg-blue-50/40 dark:bg-blue-950/20" : ""
                 }`}
               >
@@ -134,7 +136,7 @@ export function InboxList({
                 <div className="text-xs text-zinc-400 shrink-0 whitespace-nowrap">
                   {formatDate(msg.date)}
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>
