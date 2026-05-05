@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 // open in a new tab.
 const SANDBOX = "allow-same-origin allow-popups allow-popups-to-escape-sandbox";
 
-export function HtmlEmailBody({ html, dark = false }: { html: string; dark?: boolean }) {
+export function HtmlEmailBody({ html }: { html: string }) {
   const ref = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(200);
 
@@ -54,22 +54,41 @@ export function HtmlEmailBody({ html, dark = false }: { html: string; dark?: boo
     };
   }, []);
 
+  // Use `prefers-color-scheme` media query so the iframe contents adapt to
+  // the system theme — same trigger Tailwind uses for `dark:` classes — and
+  // text stays readable whether the parent is light or dark.
   const wrapped = `<!DOCTYPE html>
 <html>
 <head>
 <base target="_blank">
 <meta charset="utf-8">
 <style>
+  :root { color-scheme: light dark; }
   body {
     margin: 0;
     padding: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     font-size: 14px;
     line-height: 1.6;
-    color: ${dark ? "#e4e4e7" : "#27272a"};
+    color: #27272a;
     background: transparent;
     word-wrap: break-word;
     overflow-wrap: anywhere;
+  }
+  a { color: #2563eb; }
+  blockquote {
+    border-left: 3px solid #d4d4d8;
+    margin: 0;
+    padding-left: 12px;
+    color: #52525b;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { color: #e4e4e7; }
+    a { color: #60a5fa; }
+    blockquote {
+      border-left-color: #3f3f46;
+      color: #a1a1aa;
+    }
   }
   img, table, video, iframe {
     max-width: 100% !important;
@@ -79,18 +98,7 @@ export function HtmlEmailBody({ html, dark = false }: { html: string; dark?: boo
     white-space: pre-wrap;
     word-break: break-word;
   }
-  a {
-    color: ${dark ? "#60a5fa" : "#2563eb"};
-  }
-  blockquote {
-    border-left: 3px solid ${dark ? "#3f3f46" : "#d4d4d8"};
-    margin: 0;
-    padding-left: 12px;
-    color: ${dark ? "#a1a1aa" : "#52525b"};
-  }
-  table {
-    border-collapse: collapse;
-  }
+  table { border-collapse: collapse; }
 </style>
 </head>
 <body>${html}</body>
