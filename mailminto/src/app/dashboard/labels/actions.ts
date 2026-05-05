@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/crypto";
 import { gmailFromRefreshToken } from "@/lib/gmail/client";
+import { getUserOAuthCreds } from "@/lib/gmail/creds";
 import {
   createLabel as gmailCreateLabel,
   updateLabel as gmailUpdateLabel,
@@ -27,10 +28,15 @@ async function getGmail(accountId: string) {
     .maybeSingle();
   if (error || !data) return { ok: false as const, error: "Gmail account not found" };
 
-  return {
-    ok: true as const,
-    gmail: gmailFromRefreshToken(decrypt(data.refresh_token_encrypted)),
-  };
+  try {
+    const oauthCreds = await getUserOAuthCreds(user.id, supabase);
+    return {
+      ok: true as const,
+      gmail: gmailFromRefreshToken(decrypt(data.refresh_token_encrypted), oauthCreds),
+    };
+  } catch (err) {
+    return { ok: false as const, error: err instanceof Error ? err.message : "creds_missing" };
+  }
 }
 
 export async function createLabelAction(formData: FormData): Promise<Result> {

@@ -1,5 +1,5 @@
 import { google, type gmail_v1 } from "googleapis";
-import { createOAuthClient } from "./oauth";
+import { createOAuthClient, type OAuthCreds } from "./oauth";
 
 export type GmailMessage = {
   id: string;
@@ -12,8 +12,11 @@ export type GmailMessage = {
   receivedAt: Date;
 };
 
-export function gmailFromRefreshToken(refreshToken: string): gmail_v1.Gmail {
-  const oauth = createOAuthClient();
+export function gmailFromRefreshToken(
+  refreshToken: string,
+  creds: OAuthCreds,
+): gmail_v1.Gmail {
+  const oauth = createOAuthClient(creds);
   oauth.setCredentials({ refresh_token: refreshToken });
   return google.gmail({ version: "v1", auth: oauth });
 }

@@ -9,6 +9,7 @@ import {
   getLabelTotals,
   type GmailMessageMeta,
 } from "@/lib/gmail/client";
+import { getUserOAuthCreds } from "@/lib/gmail/creds";
 import { Inbox, AlertCircle } from "lucide-react";
 import { InboxList } from "./InboxList";
 
@@ -56,10 +57,12 @@ export default async function InboxPage() {
     error?: string;
   };
 
+  const oauthCreds = await getUserOAuthCreds(user.id, supabase);
+
   const groups: Group[] = await Promise.all(
     gmailAccounts.map(async (a): Promise<Group> => {
       try {
-        const gmail = gmailFromRefreshToken(decrypt(a.refresh_token_encrypted));
+        const gmail = gmailFromRefreshToken(decrypt(a.refresh_token_encrypted), oauthCreds);
         const [page, totals] = await Promise.all([
           listInboxPage(gmail, { maxResults: 50 }),
           getLabelTotals(gmail, "INBOX"),

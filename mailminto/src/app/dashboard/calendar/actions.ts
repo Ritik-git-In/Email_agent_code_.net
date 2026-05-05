@@ -9,6 +9,7 @@ import {
   updateEvent,
   deleteEvent,
 } from "@/lib/google/calendar";
+import { getUserOAuthCreds } from "@/lib/gmail/creds";
 
 type Result = { ok: true; eventId?: string } | { ok: false; error: string };
 
@@ -27,10 +28,15 @@ async function getCalendar(accountId: string) {
     .maybeSingle();
   if (!data) return { ok: false as const, error: "Calendar account not found" };
 
-  return {
-    ok: true as const,
-    cal: calendarFromRefreshToken(decrypt(data.refresh_token_encrypted)),
-  };
+  try {
+    const oauthCreds = await getUserOAuthCreds(user.id, supabase);
+    return {
+      ok: true as const,
+      cal: calendarFromRefreshToken(decrypt(data.refresh_token_encrypted), oauthCreds),
+    };
+  } catch (err) {
+    return { ok: false as const, error: err instanceof Error ? err.message : "creds_missing" };
+  }
 }
 
 function parseAttendees(s: string): string[] {

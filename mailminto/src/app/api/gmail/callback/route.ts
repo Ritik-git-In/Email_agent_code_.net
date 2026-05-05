@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { google } from "googleapis";
 import { createClient } from "@/lib/supabase/server";
 import { createOAuthClient } from "@/lib/gmail/oauth";
+import { getUserOAuthCreds } from "@/lib/gmail/creds";
 import { encrypt } from "@/lib/crypto";
 
 const DASHBOARD = "/dashboard/integrations";
@@ -33,7 +34,8 @@ export async function GET(request: NextRequest) {
   if (!user) return redirectWithError(request, "not_authenticated");
 
   try {
-    const oauth2Client = createOAuthClient();
+    const creds = await getUserOAuthCreds(user.id, supabase);
+    const oauth2Client = createOAuthClient(creds);
     const { tokens } = await oauth2Client.getToken(code);
     if (!tokens.refresh_token) {
       return redirectWithError(

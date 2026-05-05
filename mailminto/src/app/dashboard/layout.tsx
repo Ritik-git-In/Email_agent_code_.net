@@ -10,6 +10,7 @@ import {
   LogOut,
   FileText,
   Calendar,
+  Sparkles,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/supabase/user";
@@ -24,15 +25,15 @@ export default async function DashboardLayout({
   if (!user) redirect("/login");
 
   return (
-    <div className="min-h-screen flex bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
-      <aside className="w-60 shrink-0 border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col">
-        <div className="h-16 flex items-center px-6 border-b border-zinc-200 dark:border-zinc-800">
+    <div className="h-screen flex overflow-hidden bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
+      <aside className="w-60 shrink-0 h-screen border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col">
+        <div className="h-16 shrink-0 flex items-center px-6 border-b border-zinc-200 dark:border-zinc-800">
           <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
             <Mail className="h-5 w-5" />
             MailMinto
           </Link>
         </div>
-        <nav className="flex-1 px-3 py-4 space-y-1 text-sm">
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1 text-sm">
           <NavLink href="/dashboard" icon={<LayoutDashboard className="h-4 w-4" />}>
             Overview
           </NavLink>
@@ -45,8 +46,14 @@ export default async function DashboardLayout({
           <NavLink href="/dashboard/calendar" icon={<Calendar className="h-4 w-4" />}>
             Calendar
           </NavLink>
+          <NavLink href="/dashboard/categories" icon={<Tag className="h-4 w-4" />}>
+            Categories
+          </NavLink>
           <NavLink href="/dashboard/labels" icon={<Tag className="h-4 w-4" />}>
             Labels
+          </NavLink>
+          <NavLink href="/dashboard/setup" icon={<Sparkles className="h-4 w-4" />}>
+            Setup
           </NavLink>
           <NavLink href="/dashboard/integrations" icon={<Plug className="h-4 w-4" />}>
             Integrations
@@ -55,7 +62,7 @@ export default async function DashboardLayout({
             Settings
           </NavLink>
         </nav>
-        <div className="p-3 border-t border-zinc-200 dark:border-zinc-800">
+        <div className="shrink-0 p-3 border-t border-zinc-200 dark:border-zinc-800">
           <div className="px-3 py-2 text-xs">
             <div className="font-medium truncate">{user.email}</div>
             <div className="text-zinc-500">Free plan</div>
@@ -71,7 +78,7 @@ export default async function DashboardLayout({
           </form>
         </div>
       </aside>
-      <main className="flex-1 overflow-auto">{children}</main>
+      <main className="flex-1 h-screen overflow-y-auto">{children}</main>
     </div>
   );
 }

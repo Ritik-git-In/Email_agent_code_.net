@@ -10,16 +10,18 @@ export const GMAIL_SCOPES = [
   "https://www.googleapis.com/auth/userinfo.profile",
 ];
 
-export function createOAuthClient() {
+export type OAuthCreds = { clientId: string; clientSecret: string };
+
+export function createOAuthClient(creds: OAuthCreds) {
   return new google.auth.OAuth2(
-    env.googleClientId,
-    env.googleClientSecret,
+    creds.clientId,
+    creds.clientSecret,
     env.googleRedirectUri,
   );
 }
 
-export function buildAuthUrl(state: string): string {
-  const oauth2Client = createOAuthClient();
+export function buildAuthUrl(creds: OAuthCreds, state: string): string {
+  const oauth2Client = createOAuthClient(creds);
   return oauth2Client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",

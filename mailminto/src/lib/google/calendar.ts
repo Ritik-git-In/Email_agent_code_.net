@@ -1,5 +1,5 @@
 import { google, type calendar_v3 } from "googleapis";
-import { createOAuthClient } from "@/lib/gmail/oauth";
+import { createOAuthClient, type OAuthCreds } from "@/lib/gmail/oauth";
 
 export type CalendarEvent = {
   id: string;
@@ -28,8 +28,11 @@ export type CalendarListEntry = {
   selected: boolean;
 };
 
-export function calendarFromRefreshToken(refreshToken: string): calendar_v3.Calendar {
-  const oauth = createOAuthClient();
+export function calendarFromRefreshToken(
+  refreshToken: string,
+  creds: OAuthCreds,
+): calendar_v3.Calendar {
+  const oauth = createOAuthClient(creds);
   oauth.setCredentials({ refresh_token: refreshToken });
   return google.calendar({ version: "v3", auth: oauth });
 }

@@ -1,21 +1,22 @@
-import Groq from "groq-sdk";
+// Despite the filename, this module now talks to Kimi (Moonshot AI) via the
+// OpenAI-compatible SDK. The filename is kept for back-compat with existing imports.
+import OpenAI from "openai";
+import { env } from "@/lib/env";
 import {
-  CLASSIFIER_SYSTEM,
-  HIGH_PRIORITY_DRAFT_SYSTEM,
-  FINANCE_SUMMARY_SYSTEM,
-  CUSTOMER_SUPPORT_DRAFT_SYSTEM,
-  PROMOTION_SUMMARY_SYSTEM,
-  INTERNAL_SUMMARY_SYSTEM,
-  type Category,
-  CATEGORIES,
+  buildClassifierSystem,
+  buildDraftSystem,
+  type CategoryDef,
 } from "./prompts";
 
-const CLASSIFIER_MODEL = "llama-3.3-70b-versatile";
-const DRAFT_MODEL = "llama-3.3-70b-versatile";
-
 function client(apiKey: string) {
-  return new Groq({ apiKey });
+  return new OpenAI({
+    apiKey,
+    baseURL: env.kimiBaseUrl,
+  });
 }
+
+const CLASSIFIER_TEMPERATURE = 0;
+const DRAFT_TEMPERATURE = 0.4;
 
 function safeJsonParse<T>(text: string): T | null {
   const cleaned = text
@@ -39,57 +40,55 @@ function safeJsonParse<T>(text: string): T | null {
 }
 
 export type Classification = {
-  category: Category;
+  category: string;
   confidence: number;
   reason: string;
 };
 
 export async function classify(
   apiKey: string,
+  categories: CategoryDef[],
   email: { subject: string; from: string; snippet: string; body: string },
 ): Promise<Classification> {
-  const groq = client(apiKey);
+  const llm = client(apiKey);
   const userMsg = `From: ${email.from}\nSubject: ${email.subject}\n\nBody:\n${email.body || email.snippet}`;
-  const completion = await groq.chat.completions.create({
-    model: CLASSIFIER_MODEL,
-    temperature: 0,
+  const completion = await llm.chat.completions.create({
+    model: env.kimiModel,
+    temperature: CLASSIFIER_TEMPERATURE,
     response_format: { type: "json_object" },
     messages: [
-      { role: "system", content: CLASSIFIER_SYSTEM },
+      { role: "system", content: buildClassifierSystem(categories) },
       { role: "user", content: userMsg },
     ],
   });
   const raw = completion.choices[0]?.message?.content ?? "";
   const parsed = safeJsonParse<Classification>(raw);
-  if (!parsed || !CATEGORIES.includes(parsed.category)) {
-    return { category: "internal", confidence: 0, reason: "fallback_parse_error" };
+  const validSlugs = new Set(categories.map((c) => c.slug));
+  if (!parsed || !validSlugs.has(parsed.category)) {
+    const fallback =
+      categories.find((c) => c.slug === "internal")?.slug ??
+      categories[0]?.slug ??
+      "internal";
+    return { category: fallback, confidence: 0, reason: "fallback_parse_error" };
   }
   return parsed;
 }
-
-const SYSTEM_BY_CATEGORY: Record<Category, string> = {
-  high_priority: HIGH_PRIORITY_DRAFT_SYSTEM,
-  finance: FINANCE_SUMMARY_SYSTEM,
-  customer_support: CUSTOMER_SUPPORT_DRAFT_SYSTEM,
-  promotion: PROMOTION_SUMMARY_SYSTEM,
-  internal: INTERNAL_SUMMARY_SYSTEM,
-};
 
 export type DraftOutput = { subject: string; body: string };
 
 export async function generateDraft(
   apiKey: string,
-  category: Category,
+  category: CategoryDef,
   email: { subject: string; from: string; snippet: string; body: string },
 ): Promise<DraftOutput | null> {
-  const groq = client(apiKey);
+  const llm = client(apiKey);
   const userMsg = `From: ${email.from}\nSubject: ${email.subject}\n\nBody:\n${email.body || email.snippet}`;
-  const completion = await groq.chat.completions.create({
-    model: DRAFT_MODEL,
-    temperature: 0.4,
+  const completion = await llm.chat.completions.create({
+    model: env.kimiModel,
+    temperature: DRAFT_TEMPERATURE,
     response_format: { type: "json_object" },
     messages: [
-      { role: "system", content: SYSTEM_BY_CATEGORY[category] },
+      { role: "system", content: buildDraftSystem(category) },
       { role: "user", content: userMsg },
     ],
   });

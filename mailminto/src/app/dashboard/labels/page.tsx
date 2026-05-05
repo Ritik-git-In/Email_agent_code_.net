@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/supabase/user";
 import { decrypt } from "@/lib/crypto";
 import { gmailFromRefreshToken } from "@/lib/gmail/client";
+import { getUserOAuthCreds } from "@/lib/gmail/creds";
 import { listUserLabels, type LabelInfo } from "@/lib/gmail/labels";
 import { CreateLabelForm } from "./CreateLabelForm";
 import { LabelRow } from "./LabelRow";
@@ -36,11 +37,13 @@ export default async function LabelsPage() {
     );
   }
 
+  const oauthCreds = await getUserOAuthCreds(user.id, supabase);
+
   const groups: { account: { id: string; email: string }; labels: LabelInfo[]; error?: string }[] =
     await Promise.all(
       gmailAccounts.map(async (a) => {
         try {
-          const gmail = gmailFromRefreshToken(decrypt(a.refresh_token_encrypted));
+          const gmail = gmailFromRefreshToken(decrypt(a.refresh_token_encrypted), oauthCreds);
           const labels = await listUserLabels(gmail);
           return { account: { id: a.id, email: a.email }, labels };
         } catch (err) {

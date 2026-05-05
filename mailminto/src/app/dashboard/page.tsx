@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Mail, Send, ArrowRight, CheckCircle2 } from "lucide-react";
+import { redirect } from "next/navigation";
+import { Send } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/supabase/user";
 import { ProcessNowButton } from "./ProcessNowButton";
@@ -30,12 +31,22 @@ export default async function DashboardOverview(props: {
 
   const [
     { count: gmailCount },
-    { count: telegramCount },
+    { data: googleCreds },
+    { data: telegramRow },
     { count: processedTotal },
     { data: recent },
   ] = await Promise.all([
     supabase.from("gmail_accounts").select("*", { count: "exact", head: true }).eq("user_id", user.id),
-    supabase.from("telegram_configs").select("*", { count: "exact", head: true }).eq("user_id", user.id),
+    supabase
+      .from("google_oauth_creds")
+      .select("client_id")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("telegram_configs")
+      .select("chat_id")
+      .eq("user_id", user.id)
+      .maybeSingle(),
     supabase.from("emails_processed").select("*", { count: "exact", head: true }).eq("user_id", user.id),
     supabase
       .from("emails_processed")
@@ -45,11 +56,13 @@ export default async function DashboardOverview(props: {
       .limit(5),
   ]);
 
+  const credsConfigured = Boolean(googleCreds);
   const gmailConnected = (gmailCount ?? 0) > 0;
-  const telegramConnected = (telegramCount ?? 0) > 0;
+  const telegramConnected = Boolean(telegramRow?.chat_id);
 
-  if (!gmailConnected) {
-    return <OnboardingWizard greeting={greeting} telegramConnected={telegramConnected} />;
+  // If user hasn't completed Step 1 (creds) or Step 2 (Gmail connect), send them to setup.
+  if (!credsConfigured || !gmailConnected) {
+    redirect("/dashboard/setup");
   }
 
   return (
@@ -72,16 +85,16 @@ export default async function DashboardOverview(props: {
           <div>
             <div className="font-medium text-sm">Get instant alerts on Telegram</div>
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              One tap — no bot setup. We&apos;ll ping you when high-priority emails arrive.
+              We&apos;ll ping your Telegram bot when a high-priority email arrives.
             </p>
           </div>
-          <a
-            href="/api/telegram/link"
+          <Link
+            href="/dashboard/setup"
             className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-[#229ED9] text-white px-4 py-2 text-sm font-medium hover:opacity-90"
           >
             <Send className="h-4 w-4" />
-            Connect Telegram
-          </a>
+            Set up Telegram
+          </Link>
         </div>
       )}
 
@@ -135,127 +148,6 @@ export default async function DashboardOverview(props: {
             </Link>
           </div>
         </div>
-      )}
-    </div>
-  );
-}
-
-function OnboardingWizard({
-  greeting,
-  telegramConnected,
-}: {
-  greeting: string;
-  telegramConnected: boolean;
-}) {
-  return (
-    <div className="px-8 py-16 max-w-3xl mx-auto">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold tracking-tight">
-          Welcome, {greeting} 👋
-        </h1>
-        <p className="mt-3 text-lg text-zinc-600 dark:text-zinc-400">
-          Get your inbox automated in 2 quick steps.
-        </p>
-      </div>
-
-      <div className="mt-12 space-y-4">
-        <WizardStep
-          number={1}
-          title="Connect Gmail"
-          desc="Authorize MailMinto to read, label, and draft replies. We never store email content — just metadata."
-          actionLabel="Connect Gmail"
-          actionHref="/api/gmail/connect"
-          icon={<Mail className="h-6 w-6" />}
-          done={false}
-          primary
-        />
-
-        <WizardStep
-          number={2}
-          title="Get alerts on Telegram"
-          desc="One-tap connect. We'll ping you instantly when a high-priority email lands."
-          actionLabel={telegramConnected ? "Connected" : "Connect Telegram"}
-          actionHref={telegramConnected ? undefined : "/api/telegram/link"}
-          icon={<Send className="h-6 w-6" />}
-          done={telegramConnected}
-          optional
-        />
-      </div>
-
-      <p className="mt-10 text-center text-sm text-zinc-500">
-        Step 2 is optional — you can do it later from the dashboard.
-      </p>
-    </div>
-  );
-}
-
-function WizardStep({
-  number,
-  title,
-  desc,
-  actionLabel,
-  actionHref,
-  icon,
-  done,
-  primary,
-  optional,
-}: {
-  number: number;
-  title: string;
-  desc: string;
-  actionLabel: string;
-  actionHref?: string;
-  icon: React.ReactNode;
-  done: boolean;
-  primary?: boolean;
-  optional?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-2xl border p-6 flex items-start gap-5 ${
-        done
-          ? "border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-950/30"
-          : primary
-            ? "border-zinc-900 dark:border-zinc-100 bg-white dark:bg-zinc-900"
-            : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"
-      }`}
-    >
-      <div
-        className={`shrink-0 inline-flex h-12 w-12 items-center justify-center rounded-xl ${
-          done
-            ? "bg-green-500/10 text-green-600 dark:text-green-400"
-            : "bg-zinc-100 dark:bg-zinc-800"
-        }`}
-      >
-        {done ? <CheckCircle2 className="h-6 w-6" /> : icon}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-mono text-zinc-400">STEP {number}</span>
-          {optional && (
-            <span className="text-xs uppercase tracking-wide text-zinc-400">Optional</span>
-          )}
-        </div>
-        <h3 className="mt-1 text-lg font-semibold">{title}</h3>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{desc}</p>
-      </div>
-      {actionHref && !done && (
-        <a
-          href={actionHref}
-          className={`shrink-0 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${
-            primary
-              ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:opacity-90"
-              : "bg-[#229ED9] text-white hover:opacity-90"
-          }`}
-        >
-          {actionLabel}
-          <ArrowRight className="h-4 w-4" />
-        </a>
-      )}
-      {done && (
-        <span className="shrink-0 text-sm font-medium text-green-600 dark:text-green-400">
-          ✓ Done
-        </span>
       )}
     </div>
   );

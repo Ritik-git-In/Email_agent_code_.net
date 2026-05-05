@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/crypto";
 import { gmailFromRefreshToken } from "@/lib/gmail/client";
+import { getUserOAuthCreds } from "@/lib/gmail/creds";
 import { getDraft, sendDraft, deleteDraft, listDraftsPage, type DraftSummary } from "@/lib/gmail/drafts";
 
 type Result = { ok: true } | { ok: false; error: string };
@@ -48,10 +49,15 @@ async function getGmailForAccount(accountId: string) {
     .maybeSingle();
   if (!data) return { ok: false as const, error: "Gmail account not found" };
 
-  return {
-    ok: true as const,
-    gmail: gmailFromRefreshToken(decrypt(data.refresh_token_encrypted)),
-  };
+  try {
+    const oauthCreds = await getUserOAuthCreds(user.id, supabase);
+    return {
+      ok: true as const,
+      gmail: gmailFromRefreshToken(decrypt(data.refresh_token_encrypted), oauthCreds),
+    };
+  } catch (err) {
+    return { ok: false as const, error: err instanceof Error ? err.message : "creds_missing" };
+  }
 }
 
 export async function fetchDraftBodyAction(

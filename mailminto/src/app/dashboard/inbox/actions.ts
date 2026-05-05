@@ -8,6 +8,7 @@ import {
   getMessageMetadata,
   type GmailMessageMeta,
 } from "@/lib/gmail/client";
+import { getUserOAuthCreds } from "@/lib/gmail/creds";
 
 export type InboxFetchResult =
   | {
@@ -36,7 +37,8 @@ export async function fetchInboxPageAction(
   if (!data) return { ok: false, error: "Gmail account not found" };
 
   try {
-    const gmail = gmailFromRefreshToken(decrypt(data.refresh_token_encrypted));
+    const oauthCreds = await getUserOAuthCreds(user.id, supabase);
+    const gmail = gmailFromRefreshToken(decrypt(data.refresh_token_encrypted), oauthCreds);
     const page = await listInboxPage(gmail, {
       maxResults: 50,
       pageToken: pageToken ?? undefined,

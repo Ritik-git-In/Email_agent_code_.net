@@ -54,6 +54,47 @@ export async function ensureAllCategoryLabels(
   return result;
 }
 
+// Resolve Gmail labels for a list of user categories — single API call to list,
+// then ensure-create each missing one. Returns {slug: gmail_label_id}.
+export type LabelTarget = {
+  slug: string;
+  name: string;
+  color_bg: string;
+  color_text: string;
+};
+
+export async function ensureLabelsForCategories(
+  gmail: gmail_v1.Gmail,
+  categories: LabelTarget[],
+): Promise<Record<string, string>> {
+  const list = await gmail.users.labels.list({ userId: "me" });
+  const existingByName = new Map<string, string>();
+  for (const l of list.data.labels ?? []) {
+    if (l.name && l.id) existingByName.set(l.name, l.id);
+  }
+
+  const result: Record<string, string> = {};
+  for (const cat of categories) {
+    const labelName = `MailMinto/${cat.name}`;
+    const existingId = existingByName.get(labelName);
+    if (existingId) {
+      result[cat.slug] = existingId;
+      continue;
+    }
+    const created = await gmail.users.labels.create({
+      userId: "me",
+      requestBody: {
+        name: labelName,
+        labelListVisibility: "labelShow",
+        messageListVisibility: "show",
+        color: { backgroundColor: cat.color_bg, textColor: cat.color_text },
+      },
+    });
+    result[cat.slug] = created.data.id!;
+  }
+  return result;
+}
+
 export type LabelInfo = {
   id: string;
   name: string;

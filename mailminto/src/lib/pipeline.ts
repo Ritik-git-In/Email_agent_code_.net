@@ -10,10 +10,11 @@ import {
   createDraft,
   type GmailMessage,
 } from "@/lib/gmail/client";
-import { ensureAllCategoryLabels, CATEGORY_LABELS } from "@/lib/gmail/labels";
+import { ensureLabelsForCategories } from "@/lib/gmail/labels";
+import { getUserOAuthCreds } from "@/lib/gmail/creds";
 import { classify, generateDraft } from "@/lib/llm/groq";
 import { sendTelegramMessage } from "@/lib/telegram/send";
-import type { Category } from "@/lib/llm/prompts";
+import type { CategoryDef } from "@/lib/llm/prompts";
 
 export type ProcessSummary = {
   account: string;
@@ -24,12 +25,23 @@ export type ProcessSummary = {
   details: {
     gmail_msg_id: string;
     subject: string;
-    category: Category;
+    category: string;
     actionTaken: string;
   }[];
 };
 
-const DRAFT_CATEGORIES: Category[] = ["high_priority", "customer_support"];
+type CategoryRow = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  color_bg: string;
+  color_text: string;
+  enabled: boolean;
+  generate_draft: boolean;
+  notify_telegram: boolean;
+  draft_prompt: string | null;
+};
 
 export async function processUserEmails(): Promise<ProcessSummary[]> {
   const supabase = await createServerClient();
@@ -55,6 +67,7 @@ export async function processForUserId(
     { data: apiKeys },
     { data: telegram },
     { data: profile },
+    { data: categoriesRaw },
   ] = await Promise.all([
     supabase.from("gmail_accounts").select("id, email, refresh_token_encrypted").eq("user_id", userId),
     supabase.from("api_keys").select("provider, key_encrypted").eq("user_id", userId),
@@ -64,18 +77,33 @@ export async function processForUserId(
       .eq("user_id", userId)
       .maybeSingle(),
     supabase.from("profiles").select("plan").eq("id", userId).maybeSingle(),
+    supabase
+      .from("categories")
+      .select("id, slug, name, description, color_bg, color_text, enabled, generate_draft, notify_telegram, draft_prompt")
+      .eq("user_id", userId)
+      .eq("enabled", true)
+      .order("display_order"),
   ]);
 
   if (!gmailAccounts || gmailAccounts.length === 0) {
     throw new Error("No Gmail account connected. Connect one in Integrations.");
   }
+  const categories = (categoriesRaw ?? []) as CategoryRow[];
+  if (categories.length === 0) {
+    throw new Error("No categories defined. Set up at least one in /dashboard/categories.");
+  }
+
+  const oauthCreds = await getUserOAuthCreds(userId, supabase);
   const userLlmKey =
+    apiKeys?.find((k) => k.provider === "kimi") ??
     apiKeys?.find((k) => k.provider === "groq") ??
     apiKeys?.find((k) => k.provider === "openai");
-  const llmApiKey = userLlmKey ? decrypt(userLlmKey.key_encrypted) : env.groqApiKey;
+  const llmApiKey = userLlmKey
+    ? decrypt(userLlmKey.key_encrypted)
+    : env.kimiApiKey || env.groqApiKey;
   if (!llmApiKey) {
     throw new Error(
-      "LLM unavailable. Server has no GROQ_API_KEY configured and user has no key set.",
+      "LLM unavailable. Server has no KIMI_API_KEY configured and user has no key set.",
     );
   }
 
@@ -97,12 +125,18 @@ export async function processForUserId(
   }
   const batchSize = Math.min(25, remainingToday);
 
-  const telegramBotToken = env.telegramBotToken
-    ? env.telegramBotToken
-    : telegram?.bot_token_encrypted
-      ? decrypt(telegram.bot_token_encrypted)
-      : null;
+  const telegramBotToken = telegram?.bot_token_encrypted
+    ? decrypt(telegram.bot_token_encrypted)
+    : null;
   const telegramChatId = telegram?.chat_id ?? null;
+
+  const categoriesBySlug = new Map(categories.map((c) => [c.slug, c]));
+  const categoryDefs: CategoryDef[] = categories.map((c) => ({
+    slug: c.slug,
+    name: c.name,
+    description: c.description,
+    draft_prompt: c.draft_prompt,
+  }));
 
   const summaries: ProcessSummary[] = [];
 
@@ -119,9 +153,9 @@ export async function processForUserId(
 
     try {
       const refreshToken = decrypt(account.refresh_token_encrypted);
-      const gmail = gmailFromRefreshToken(refreshToken);
+      const gmail = gmailFromRefreshToken(refreshToken, oauthCreds);
 
-      const labelIds = await ensureAllCategoryLabels(gmail);
+      const labelIds = await ensureLabelsForCategories(gmail, categories);
 
       const messageIds = await listUnreadIds(gmail, batchSize);
       summary.fetched = messageIds.length;
@@ -149,6 +183,8 @@ export async function processForUserId(
             telegramBotToken,
             telegramChatId,
             gmail,
+            categoryDefs,
+            categoriesBySlug,
           });
 
           await supabase.from("emails_processed").insert({
@@ -228,25 +264,54 @@ async function processSingleEmail(args: {
   telegramBotToken: string | null;
   telegramChatId: string | null;
   gmail: ReturnType<typeof gmailFromRefreshToken>;
+  categoryDefs: CategoryDef[];
+  categoriesBySlug: Map<string, CategoryRow>;
 }): Promise<{
-  category: Category;
+  category: string;
   confidence: number;
   actionTaken: string;
   draftId?: string;
 }> {
-  const { msg, labelIds, llmApiKey, telegramBotToken, telegramChatId, gmail } = args;
+  const {
+    msg,
+    labelIds,
+    llmApiKey,
+    telegramBotToken,
+    telegramChatId,
+    gmail,
+    categoryDefs,
+    categoriesBySlug,
+  } = args;
 
-  const classification = await classify(llmApiKey, msg);
-  const category = classification.category;
+  const classification = await classify(llmApiKey, categoryDefs, msg);
+  const matched = categoriesBySlug.get(classification.category);
+  if (!matched) {
+    return {
+      category: classification.category,
+      confidence: classification.confidence,
+      actionTaken: "no_matching_category",
+    };
+  }
 
-  const labelId = labelIds[category];
-  await addLabel(gmail, msg.id, labelId);
+  const labelId = labelIds[matched.slug];
+  const actions: string[] = [];
+  if (labelId) {
+    await addLabel(gmail, msg.id, labelId);
+    actions.push(`labeled:${matched.name}`);
+  }
 
-  const actions: string[] = [`labeled:${CATEGORY_LABELS[category].name}`];
   let draftId: string | undefined;
-
-  if (DRAFT_CATEGORIES.includes(category)) {
-    const draft = await generateDraft(llmApiKey, category, msg);
+  if (matched.generate_draft) {
+    const draft = await generateDraft(
+      llmApiKey,
+      {
+        slug: matched.slug,
+        name: matched.name,
+        description: matched.description,
+        draft_prompt: matched.draft_prompt,
+      },
+      msg,
+    );
     if (draft) {
       try {
         const fromEmail = extractEmailAddress(msg.from);
@@ -263,9 +328,9 @@ async function processSingleEmail(args: {
     }
   }
 
-  if (category === "high_priority" && telegramBotToken && telegramChatId) {
+  if (matched.notify_telegram && telegramBotToken && telegramChatId) {
     const text =
-      `🚨 High Priority — from ${msg.from}\n\n` +
+      `📬 ${matched.name} — from ${msg.from}\n\n` +
       `Subject: ${msg.subject}\n\n` +
       `${msg.snippet.slice(0, 500)}`;
     const tg = await sendTelegramMessage(telegramBotToken, telegramChatId, text);
@@ -273,7 +338,7 @@ async function processSingleEmail(args: {
   }
 
   return {
-    category,
+    category: matched.slug,
     confidence: classification.confidence,
     actionTaken: actions.join("; "),
     draftId,

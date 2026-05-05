@@ -10,6 +10,7 @@ import {
   type CalendarEvent,
   type CalendarListEntry,
 } from "@/lib/google/calendar";
+import { getUserOAuthCreds } from "@/lib/gmail/creds";
 import { CalendarShell } from "./CalendarShell";
 import {
   isView,
@@ -60,7 +61,8 @@ export default async function CalendarPage(props: {
   let needsReconnect = false;
 
   try {
-    const cal = calendarFromRefreshToken(decrypt(account.refresh_token_encrypted));
+    const oauthCreds = await getUserOAuthCreds(user.id, supabase);
+    const cal = calendarFromRefreshToken(decrypt(account.refresh_token_encrypted), oauthCreds);
     calendars = await listCalendars(cal);
     events = await listEventsRange(cal, {
       timeMin: range.start,
